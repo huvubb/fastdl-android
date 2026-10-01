@@ -25,14 +25,30 @@ import android.widget.TextView;
 public final class MainActivity extends Activity {
     private EditText urlInput;
     private TextView status;
+    private TextView percent;
+    private TextView speed;
     private ProgressBar progress;
+    private long lastSpeedDone;
+    private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             long done = intent.getLongExtra(DownloadService.EXTRA_DONE, 0);
             long total = intent.getLongExtra(DownloadService.EXTRA_TOTAL, 0);
             status.setText(intent.getStringExtra(DownloadService.EXTRA_STATUS));
             progress.setIndeterminate(total <= 0);
-            if (total > 0) progress.setProgress((int) Math.min(100, done * 100 / total));
+            long now = System.currentTimeMillis();
+            long elapsed = lastSpeedAt == 0 ? 0 : Math.max(1, now - lastSpeedAt);
+            long bytesPerSecond = elapsed == 0 ? 0 : Math.max(0, (done - lastSpeedDone) * 1000 / elapsed);
+            lastSpeedAt = now;
+            lastSpeedDone = done;
+            speed.setText("当前速度  " + pretty(bytesPerSecond) + "/s");
+            if (total > 0) {
+                int value = (int) Math.min(100, done * 100 / total);
+                progress.setProgress(value);
+                percent.setText(value + "%");
+            } else {
+                percent.setText("准备中");
+            }
         }
     };
 
@@ -120,15 +136,24 @@ public final class MainActivity extends Activity {
         monitor.setOrientation(LinearLayout.VERTICAL);
         monitor.setPadding(dp(18), dp(16), dp(18), dp(16));
         monitor.setBackgroundResource(R.drawable.bg_status);
+        LinearLayout monitorHeader = new LinearLayout(this);
+        monitorHeader.setGravity(Gravity.CENTER_VERTICAL);
         TextView monitorTitle = text("下载状态 · 自动加速", 14, Color.rgb(47, 80, 128));
+        percent = text("0%", 17, Color.rgb(25, 92, 192));
+        percent.setGravity(Gravity.RIGHT);
+        monitorHeader.addView(monitorTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        monitorHeader.addView(percent, new LinearLayout.LayoutParams(-2, -2));
         status = text("等待下载任务", 15, Color.rgb(25, 42, 70));
-        status.setPadding(0, dp(6), 0, dp(12));
+        status.setPadding(0, dp(7), 0, dp(3));
+        speed = text("当前速度  0 KB/s", 13, Color.rgb(85, 111, 151));
+        speed.setPadding(0, 0, 0, dp(12));
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
         progress.setIndeterminate(false);
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34, 110, 224)));
-        monitor.addView(monitorTitle);
+        monitor.addView(monitorHeader);
         monitor.addView(status);
+        monitor.addView(speed);
         monitor.addView(progress, new LinearLayout.LayoutParams(-1, dp(8)));
         root.addView(monitor);
 
@@ -195,5 +220,9 @@ public final class MainActivity extends Activity {
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density);
+    }
+
+    private static String pretty(long bytes) {
+        return bytes < 1024 * 1024 ? Math.max(0, bytes / 1024) + " KB" : String.format(java.util.Locale.US, "%.1f MB", bytes / 1048576.0);
     }
 }
