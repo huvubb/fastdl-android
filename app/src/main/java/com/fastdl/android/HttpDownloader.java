@@ -80,6 +80,7 @@ final class HttpDownloader {
             report(0, "正在获取下载地址…");
             url = DownloadLinkResolver.resolve(url, networkRouter);
             Probe probe = probe();
+            if (probe.finalUrl != null && !probe.finalUrl.isEmpty()) url = probe.finalUrl;
             total = probe.size;
             String name = safeName(probe.name);
             File finalFile = new File(downloadRoot, name);
@@ -160,8 +161,10 @@ final class HttpDownloader {
         if (size < 0) size = c.getContentLengthLong();
         String filename = filename(c, url);
         String etag = c.getHeaderField("ETag");
-        c.disconnect();
-        return new Probe(url, Math.max(size, -1), range, filename, etag == null ? "" : etag);
+        String finalUrl = c.getURL() == null ? url : c.getURL().toString();
+        close(c);
+        return new Probe(url, Math.max(size, -1), range, filename, etag == null ? "" : etag,
+                finalUrl.equals(url) ? "" : finalUrl);
     }
 
     private void ranged(Probe probe, File finalFile, String name) throws Exception {
@@ -404,7 +407,9 @@ final class HttpDownloader {
         synchronized int limit() { return limit; }
     }
     private static final class Probe {
-        final long size; final boolean range; final String name; final String etag; final String url;
-        Probe(String url, long size, boolean range, String name, String etag) { this.url = url; this.size = size; this.range = range; this.name = name; this.etag = etag; }
+        final long size; final boolean range; final String name; final String etag; final String url; final String finalUrl;
+        Probe(String url, long size, boolean range, String name, String etag, String finalUrl) {
+            this.url = url; this.size = size; this.range = range; this.name = name; this.etag = etag; this.finalUrl = finalUrl;
+        }
     }
 }
