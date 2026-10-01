@@ -220,6 +220,8 @@ final class HttpDownloader {
                 int lowered = concurrency.backOff();
                 if (lowered > 0) report(done.get(), "连接受限，自动降至 " + lowered + " 路并发");
                 if (attempt == 2) throw new RuntimeException("分片 " + (index + 1) + " 下载失败");
+                try { Thread.sleep(250L << attempt); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); return; }
             } finally { if (c != null) close(c); concurrency.release(); }
         }
     }
@@ -296,14 +298,17 @@ final class HttpDownloader {
         return input.trim();
     }
 
-    private synchronized void reportMaybe() {
+    private void reportMaybe() {
         long now = System.currentTimeMillis();
         if (now - lastReport <= 500) return;
-        long current = done.get();
-        long elapsed = Math.max(1, now - lastRateTime);
-        long rate = Math.max(0, (current - lastRateDone) * 1000 / elapsed);
-        lastReport = now; lastRateTime = now; lastRateDone = current;
-        report(current, "下载中：" + pretty(current) + (total > 0 ? " / " + pretty(total) : "") + " · " + pretty(rate) + "/s · " + concurrency.limit() + "路");
+        synchronized (this) {
+            if (now - lastReport <= 500) return;
+            long current = done.get();
+            long elapsed = Math.max(1, now - lastRateTime);
+            long rate = Math.max(0, (current - lastRateDone) * 1000 / elapsed);
+            lastReport = now; lastRateTime = now; lastRateDone = current;
+            report(current, "下载中：" + pretty(current) + (total > 0 ? " / " + pretty(total) : "") + " · " + pretty(rate) + "/s · " + concurrency.limit() + "路");
+        }
     }
     private void report(long current, String status) { listener.update(current, total, status); }
     private static File part(File work, int index) { return new File(work, String.format("part-%05d", index)); }
@@ -341,8 +346,9 @@ final class HttpDownloader {
         private double tokens;
         private long last = System.nanoTime();
         RateLimiter(long limit) { this.limit = limit; this.tokens = limit; }
-        synchronized void acquire(int requested) {
+        void acquire(int requested) {
             if (limit <= 0 || requested <= 0) return;
+            synchronized (this) {
             int remaining = requested;
             while (remaining > 0) {
                 long now = System.nanoTime();
@@ -352,6 +358,7 @@ final class HttpDownloader {
                 if (granted > 0) { tokens -= granted; remaining -= granted; continue; }
                 long waitMs = Math.max(1, (long) Math.ceil(1000d / limit));
                 try { Thread.sleep(waitMs); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+            }
             }
         }
     }
