@@ -127,7 +127,23 @@ final class HttpDownloader {
     }
 
     private Probe probe() throws IOException {
-        report(0, "连接服务器…");
+        IOException last = null;
+        for (int attempt = 0; attempt < 3 && !stop.get(); attempt++) {
+            try {
+                report(0, attempt == 0 ? "连接服务器…" : "连接失败，正在重试（" + (attempt + 1) + "/3）…");
+                return probeOnce();
+            } catch (IOException error) {
+                last = error;
+                if (attempt < 2) {
+                    try { Thread.sleep(700L << attempt); }
+                    catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
+                }
+            }
+        }
+        throw last == null ? new IOException("连接已取消") : last;
+    }
+
+    private Probe probeOnce() throws IOException {
         HttpURLConnection c = open("bytes=0-0");
         int code = c.getResponseCode();
         if (code != HttpURLConnection.HTTP_PARTIAL && code != HttpURLConnection.HTTP_OK) {
@@ -260,12 +276,13 @@ final class HttpDownloader {
             Proxy.Type type = p.getScheme() != null && p.getScheme().toLowerCase(java.util.Locale.US).startsWith("socks") ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
             c = (HttpURLConnection) target.openConnection(new Proxy(type, new InetSocketAddress(host, port)));
         }
-        c.setConnectTimeout(12_000);
+        c.setConnectTimeout(15_000);
         c.setReadTimeout(60_000);
         c.setInstanceFollowRedirects(true);
         c.setUseCaches(false);
         c.setRequestProperty("Connection", "keep-alive");
         c.setRequestProperty("Cache-Control", "no-cache");
+        c.setRequestProperty("Accept", "application/octet-stream,*/*");
         c.setRequestProperty("Accept-Encoding", "identity");
         if (!options.headers.containsKey("User-Agent")) c.setRequestProperty("User-Agent", "FastDL-Android/0.2");
         for (java.util.Map.Entry<String, String> header : options.headers.entrySet()) c.setRequestProperty(header.getKey(), header.getValue());

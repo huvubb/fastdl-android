@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
@@ -20,6 +21,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.content.SharedPreferences;
 
 /** A deliberately focused download screen: people paste a URL and the engine chooses the rest. */
 public final class MainActivity extends Activity {
@@ -28,6 +30,10 @@ public final class MainActivity extends Activity {
     private TextView percent;
     private TextView speed;
     private ProgressBar progress;
+    private TextView palette;
+    private SharedPreferences preferences;
+    private LinearLayout hero;
+    private Button startButton;
     private long lastSpeedDone;
     private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
@@ -54,6 +60,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        preferences = getSharedPreferences("fastdl-ui", MODE_PRIVATE);
         buildUi();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 10);
@@ -83,7 +90,7 @@ public final class MainActivity extends Activity {
         root.setPadding(pad, dp(18), pad, pad);
         scroll.addView(root);
 
-        LinearLayout hero = new LinearLayout(this);
+        hero = new LinearLayout(this);
         hero.setGravity(Gravity.CENTER_VERTICAL);
         hero.setPadding(dp(22), dp(22), dp(22), dp(22));
         hero.setBackgroundResource(R.drawable.bg_hero);
@@ -100,7 +107,18 @@ public final class MainActivity extends Activity {
         heroText.addView(title);
         heroText.addView(subtitle);
         hero.addView(heroText, new LinearLayout.LayoutParams(0, -2, 1));
+        palette = text(preferences.getBoolean("pink", false) ? "蓝色" : "粉色", 13, Color.WHITE);
+        palette.setGravity(Gravity.CENTER);
+        palette.setPadding(dp(10), dp(8), dp(10), dp(8));
+        palette.setOnClickListener(v -> {
+            boolean pink = !preferences.getBoolean("pink", false);
+            preferences.edit().putBoolean("pink", pink).apply();
+            palette.setText(pink ? "蓝色" : "粉色");
+            applyPalette(pink);
+        });
+        hero.addView(palette, new LinearLayout.LayoutParams(-2, -2));
         root.addView(hero);
+        applyPalette(preferences.getBoolean("pink", false));
 
         space(root, 18);
         LinearLayout card = new LinearLayout(this);
@@ -121,14 +139,14 @@ public final class MainActivity extends Activity {
         urlInput.setPadding(dp(14), 0, dp(14), 0);
         card.addView(urlInput, new LinearLayout.LayoutParams(-1, dp(56)));
         space(card, 14);
-        Button start = new Button(this);
-        start.setAllCaps(false);
-        start.setText("开始下载");
-        start.setTextSize(16);
-        start.setTextColor(Color.WHITE);
-        start.setBackgroundResource(R.drawable.bg_primary);
-        start.setOnClickListener(v -> startDownload());
-        card.addView(start, new LinearLayout.LayoutParams(-1, dp(52)));
+        startButton = new Button(this);
+        startButton.setAllCaps(false);
+        startButton.setText("开始下载");
+        startButton.setTextSize(16);
+        startButton.setTextColor(Color.WHITE);
+        startButton.setBackgroundResource(R.drawable.bg_primary);
+        startButton.setOnClickListener(v -> startDownload());
+        card.addView(startButton, new LinearLayout.LayoutParams(-1, dp(52)));
         root.addView(card);
 
         space(root, 14);
@@ -220,6 +238,17 @@ public final class MainActivity extends Activity {
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density);
+    }
+
+    private void applyPalette(boolean pink) {
+        int start = Color.rgb(pink ? 224 : 20, pink ? 72 : 89, pink ? 135 : 217);
+        int end = Color.rgb(pink ? 248 : 40, pink ? 119 : 126, pink ? 166 : 242);
+        GradientDrawable heroGradient = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{start, end});
+        heroGradient.setCornerRadius(dp(24));
+        hero.setBackground(heroGradient);
+        GradientDrawable actionGradient = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{start, end});
+        actionGradient.setCornerRadius(dp(16));
+        startButton.setBackground(actionGradient);
     }
 
     private static String pretty(long bytes) {
