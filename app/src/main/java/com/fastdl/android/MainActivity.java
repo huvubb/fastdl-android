@@ -6,28 +6,26 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
-import android.graphics.Color;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-/** Native, dependency-free screen. Settings stay intentionally compact for lower memory use. */
+/** A deliberately focused download screen: people paste a URL and the engine chooses the rest. */
 public final class MainActivity extends Activity {
-    private EditText urlInput, threadsInput, limitInput, proxyInput, headersInput;
-    private CheckBox dualNetwork;
+    private EditText urlInput;
     private TextView status;
     private ProgressBar progress;
-    private SharedPreferences prefs;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             long done = intent.getLongExtra(DownloadService.EXTRA_DONE, 0);
@@ -40,7 +38,6 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        prefs = getSharedPreferences("fastdl", MODE_PRIVATE);
         buildUi();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 10);
@@ -53,64 +50,150 @@ public final class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(updates, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(updates, filter);
     }
-    @Override public void onStop() { unregisterReceiver(updates); super.onStop(); }
+
+    @Override public void onStop() {
+        unregisterReceiver(updates);
+        super.onStop();
+    }
 
     private void buildUi() {
-        int pad = dp(16);
+        int pad = dp(20);
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundResource(R.drawable.bg_app);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(pad, pad, pad, pad);
-        root.setBackgroundColor(Color.rgb(246, 248, 252));
+        root.setPadding(pad, dp(18), pad, pad);
         scroll.addView(root);
 
-        TextView title = label("FastDL", 28); title.setTextColor(Color.WHITE); title.setBackgroundResource(R.drawable.bg_hero); root.addView(title);
-        TextView subtitle = label("极速直链下载 · 内存加速 · 自动续传", 14); subtitle.setTextColor(Color.WHITE); subtitle.setBackgroundResource(R.drawable.bg_hero); root.addView(subtitle);
-        urlInput = field("下载链接（HTTP / HTTPS）", InputType.TYPE_TEXT_VARIATION_URI, ""); root.addView(urlInput);
-        threadsInput = field("并发连接数（1–128，默认 128；自动降档）", InputType.TYPE_CLASS_NUMBER, prefs.getString("threads", "128")); root.addView(threadsInput);
-        limitInput = field("总限速（可选：5M、512K；留空不限速）", InputType.TYPE_CLASS_TEXT, prefs.getString("limit", "")); root.addView(limitInput);
-        proxyInput = field("代理（可选：http://127.0.0.1:7890）", InputType.TYPE_TEXT_VARIATION_URI, prefs.getString("proxy", "")); root.addView(proxyInput);
-        dualNetwork = new CheckBox(this); dualNetwork.setText("双网加速（同时使用 WLAN 与移动数据，消耗移动流量）"); dualNetwork.setChecked(prefs.getBoolean("dual", false)); root.addView(dualNetwork);
-        headersInput = field("请求头（可选，每行 KEY: VALUE；不会保存）", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE, "");
-        headersInput.setMinLines(3); headersInput.setGravity(Gravity.TOP); root.addView(headersInput);
+        LinearLayout hero = new LinearLayout(this);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setPadding(dp(22), dp(22), dp(22), dp(22));
+        hero.setBackgroundResource(R.drawable.bg_hero);
+        ImageView mark = new ImageView(this);
+        mark.setImageResource(R.drawable.ic_fastdl);
+        mark.setPadding(dp(8), dp(8), dp(8), dp(8));
+        hero.addView(mark, new LinearLayout.LayoutParams(dp(54), dp(54)));
+        LinearLayout heroText = new LinearLayout(this);
+        heroText.setOrientation(LinearLayout.VERTICAL);
+        heroText.setPadding(dp(14), 0, 0, 0);
+        TextView title = text("FastDL", 27, Color.WHITE);
+        title.setLetterSpacing(0.02f);
+        TextView subtitle = text("极速直链下载", 14, Color.rgb(213, 231, 255));
+        heroText.addView(title);
+        heroText.addView(subtitle);
+        hero.addView(heroText, new LinearLayout.LayoutParams(0, -2, 1));
+        root.addView(hero);
 
-        Button start = new Button(this); start.setText("开始 / 继续下载"); start.setTextColor(Color.WHITE); start.setBackgroundResource(R.drawable.bg_primary); start.setOnClickListener(v -> startDownload()); root.addView(start);
+        space(root, 18);
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(18), dp(18), dp(18), dp(18));
+        card.setBackgroundResource(R.drawable.bg_card);
+        TextView prompt = text("粘贴下载链接", 17, Color.rgb(25, 42, 70));
+        TextView hint = text("支持 HTTP 与 HTTPS，连接、分片与网络策略将自动选择。", 13, Color.rgb(104, 119, 142));
+        hint.setPadding(0, dp(4), 0, dp(14));
+        card.addView(prompt);
+        card.addView(hint);
+        urlInput = new EditText(this);
+        urlInput.setHint("https://example.com/file.zip");
+        urlInput.setTextSize(15);
+        urlInput.setSingleLine(true);
+        urlInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        urlInput.setBackgroundResource(R.drawable.bg_url);
+        urlInput.setPadding(dp(14), 0, dp(14), 0);
+        card.addView(urlInput, new LinearLayout.LayoutParams(-1, dp(56)));
+        space(card, 14);
+        Button start = new Button(this);
+        start.setAllCaps(false);
+        start.setText("开始下载");
+        start.setTextSize(16);
+        start.setTextColor(Color.WHITE);
+        start.setBackgroundResource(R.drawable.bg_primary);
+        start.setOnClickListener(v -> startDownload());
+        card.addView(start, new LinearLayout.LayoutParams(-1, dp(52)));
+        root.addView(card);
+
+        space(root, 14);
+        LinearLayout monitor = new LinearLayout(this);
+        monitor.setOrientation(LinearLayout.VERTICAL);
+        monitor.setPadding(dp(18), dp(16), dp(18), dp(16));
+        monitor.setBackgroundResource(R.drawable.bg_status);
+        TextView monitorTitle = text("下载状态 · 自动加速", 14, Color.rgb(47, 80, 128));
+        status = text("等待下载任务", 15, Color.rgb(25, 42, 70));
+        status.setPadding(0, dp(6), 0, dp(12));
+        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        progress.setMax(100);
+        progress.setIndeterminate(false);
+        progress.setProgressTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34, 110, 224)));
+        monitor.addView(monitorTitle);
+        monitor.addView(status);
+        monitor.addView(progress, new LinearLayout.LayoutParams(-1, dp(8)));
+        root.addView(monitor);
+
+        space(root, 14);
         LinearLayout controls = new LinearLayout(this);
-        Button pause = new Button(this); pause.setText("暂停并保留进度"); pause.setBackgroundResource(R.drawable.bg_secondary); pause.setOnClickListener(v -> sendAction(DownloadService.ACTION_PAUSE));
-        Button cancel = new Button(this); cancel.setText("取消并删除"); cancel.setBackgroundResource(R.drawable.bg_secondary); cancel.setOnClickListener(v -> sendAction(DownloadService.ACTION_CANCEL));
-        controls.addView(pause, new LinearLayout.LayoutParams(0, -2, 1)); controls.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1)); root.addView(controls);
-        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal); progress.setMax(100); progress.setIndeterminate(false);
-        root.addView(progress, new LinearLayout.LayoutParams(-1, dp(14)));
-        status = label("等待下载任务", 14); status.setGravity(Gravity.CENTER_HORIZONTAL); status.setPadding(0, pad, 0, 0); root.addView(status);
-        root.addView(label("文件保存在应用专属 Downloads 目录。Cookie、Referer、User-Agent 可直接填进请求头。", 12));
+        controls.setGravity(Gravity.CENTER);
+        Button pause = secondary("暂停");
+        pause.setOnClickListener(v -> sendAction(DownloadService.ACTION_PAUSE));
+        Button cancel = secondary("取消任务");
+        cancel.setOnClickListener(v -> sendAction(DownloadService.ACTION_CANCEL));
+        LinearLayout.LayoutParams first = new LinearLayout.LayoutParams(0, dp(48), 1);
+        first.setMargins(0, 0, dp(8), 0);
+        controls.addView(pause, first);
+        controls.addView(cancel, new LinearLayout.LayoutParams(0, dp(48), 1));
+        root.addView(controls);
+
+        TextView note = text("自动使用最多 128 路连接；网络不稳定时会平稳降档。下载完成后文件保存在应用 Downloads 目录。", 12, Color.rgb(120, 132, 150));
+        note.setGravity(Gravity.CENTER);
+        note.setLineSpacing(dp(3), 1f);
+        note.setPadding(dp(10), dp(18), dp(10), 0);
+        root.addView(note);
         setContentView(scroll);
     }
 
-    private EditText field(String hint, int type, String value) {
-        EditText view = new EditText(this);
-        view.setHint(hint); view.setText(value); view.setInputType(type);
-        view.setBackgroundResource(R.drawable.bg_input);
-        view.setSingleLine(type != InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+    private Button secondary(String title) {
+        Button button = new Button(this);
+        button.setAllCaps(false);
+        button.setText(title);
+        button.setTextSize(14);
+        button.setTextColor(Color.rgb(50, 84, 136));
+        button.setBackgroundResource(R.drawable.bg_secondary);
+        return button;
+    }
+
+    private TextView text(String value, int size, int color) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color);
         return view;
     }
-    private TextView label(String text, int size) { TextView v = new TextView(this); v.setText(text); v.setTextSize(size); return v; }
+
+    private void space(LinearLayout parent, int height) {
+        View view = new View(this);
+        parent.addView(view, new LinearLayout.LayoutParams(1, dp(height)));
+    }
 
     private void startDownload() {
         String url = urlInput.getText().toString().trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) { status.setText("仅支持 HTTP / HTTPS 链接"); return; }
-        int threads;
-        try { threads = Integer.parseInt(threadsInput.getText().toString().trim()); } catch (NumberFormatException e) { threads = 128; }
-        threads = Math.max(1, Math.min(128, threads));
-        prefs.edit().putString("threads", String.valueOf(threads)).putString("limit", limitInput.getText().toString().trim())
-                .putString("proxy", proxyInput.getText().toString().trim()).putBoolean("dual", dualNetwork.isChecked()).apply();
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            status.setText("请输入有效的 HTTP 或 HTTPS 下载链接");
+            return;
+        }
         Intent i = new Intent(this, DownloadService.class).setAction(DownloadService.ACTION_START);
-        i.putExtra(DownloadService.EXTRA_URL, url).putExtra(DownloadOptions.EXTRA_THREADS, threads)
-                .putExtra(DownloadOptions.EXTRA_LIMIT, limitInput.getText().toString())
-                .putExtra(DownloadOptions.EXTRA_PROXY, proxyInput.getText().toString())
-                .putExtra(DownloadOptions.EXTRA_DUAL_NETWORK, dualNetwork.isChecked())
-                .putExtra(DownloadOptions.EXTRA_HEADERS, headersInput.getText().toString());
+        i.putExtra(DownloadService.EXTRA_URL, url)
+                .putExtra(DownloadOptions.EXTRA_THREADS, DownloadOptions.AUTO_THREADS)
+                .putExtra(DownloadOptions.EXTRA_DUAL_NETWORK, true);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
     }
-    private void sendAction(String action) { startService(new Intent(this, DownloadService.class).setAction(action)); }
-    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density); }
+
+    private void sendAction(String action) {
+        startService(new Intent(this, DownloadService.class).setAction(action));
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
+    }
 }

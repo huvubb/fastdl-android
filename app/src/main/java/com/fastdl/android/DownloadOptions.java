@@ -8,6 +8,7 @@ import java.util.Map;
 
 /** Transfer-only settings. Kept small so they can safely cross a service Intent. */
 final class DownloadOptions {
+    static final int AUTO_THREADS = 128;
     static final String EXTRA_THREADS = "threads";
     static final String EXTRA_LIMIT = "limit";
     static final String EXTRA_PROXY = "proxy";
@@ -29,9 +30,9 @@ final class DownloadOptions {
     }
 
     static DownloadOptions from(Intent intent) {
-        return new DownloadOptions(intent.getIntExtra(EXTRA_THREADS, 128),
+        return new DownloadOptions(intent.getIntExtra(EXTRA_THREADS, AUTO_THREADS),
                 parseLimit(intent.getStringExtra(EXTRA_LIMIT)),
-                intent.getStringExtra(EXTRA_PROXY), parseHeaders(intent.getStringExtra(EXTRA_HEADERS)), intent.getBooleanExtra(EXTRA_DUAL_NETWORK, false));
+                intent.getStringExtra(EXTRA_PROXY), parseHeaders(intent.getStringExtra(EXTRA_HEADERS)), intent.getBooleanExtra(EXTRA_DUAL_NETWORK, true));
     }
 
     static long parseLimit(String input) {

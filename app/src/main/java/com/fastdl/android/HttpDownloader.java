@@ -27,7 +27,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 final class HttpDownloader {
     interface Listener { void update(long done, long total, String status); }
-    private static final int BUFFER = 64 * 1024;
+    // Large enough to keep high-bandwidth connections fed, while 128 active workers
+    // remain within a modest memory envelope on phones.
+    private static final int BUFFER = 128 * 1024;
     private static final long MIN_CHUNK = 4L * 1024 * 1024;
     private static final long MAX_CHUNK = 32L * 1024 * 1024;
     private static final int DEFAULT_THREADS = 128;
@@ -50,7 +52,7 @@ final class HttpDownloader {
     HttpDownloader(File downloadRoot, String url, DownloadOptions options, NetworkRouter networkRouter, Listener listener) {
         this.downloadRoot = downloadRoot;
         this.url = url;
-        this.options = options == null ? new DownloadOptions(DEFAULT_THREADS, 0, "", new java.util.LinkedHashMap<>(), false) : options;
+        this.options = options == null ? new DownloadOptions(DEFAULT_THREADS, 0, "", new java.util.LinkedHashMap<>(), true) : options;
         this.networkRouter = networkRouter;
         this.limiter = new RateLimiter(this.options.limitBytesPerSecond);
         this.concurrency = new AdaptiveConcurrency(this.options.threads);
@@ -151,7 +153,7 @@ final class HttpDownloader {
             done.addAndGet(have);
             if (have < expected) pending.add(i);
         }
-        report(done.get(), "分片下载：" + pending.size() + "/" + chunks + " 个待完成，最高 " + options.threads + " 路并发");
+        report(done.get(), "极速模式：" + pending.size() + " 个分片待完成，最高 " + options.threads + " 路并发");
         ExecutorService pool = Executors.newFixedThreadPool(Math.min(options.threads, Math.max(1, pending.size())));
         try {
             List<Future<?>> futures = new ArrayList<>();
@@ -245,8 +247,11 @@ final class HttpDownloader {
             Proxy.Type type = p.getScheme() != null && p.getScheme().toLowerCase(java.util.Locale.US).startsWith("socks") ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
             c = (HttpURLConnection) target.openConnection(new Proxy(type, new InetSocketAddress(host, port)));
         }
-        c.setConnectTimeout(15_000);
-        c.setReadTimeout(30_000);
+        c.setConnectTimeout(12_000);
+        c.setReadTimeout(60_000);
+        c.setUseCaches(false);
+        c.setRequestProperty("Connection", "keep-alive");
+        c.setRequestProperty("Cache-Control", "no-cache");
         c.setRequestProperty("Accept-Encoding", "identity");
         if (!options.headers.containsKey("User-Agent")) c.setRequestProperty("User-Agent", "FastDL-Android/0.2");
         for (java.util.Map.Entry<String, String> header : options.headers.entrySet()) c.setRequestProperty(header.getKey(), header.getValue());
