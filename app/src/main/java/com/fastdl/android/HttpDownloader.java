@@ -38,7 +38,7 @@ final class HttpDownloader {
     private static final int DEFAULT_THREADS = 128;
 
     private final File downloadRoot;
-    private final String url;
+    private String url;
     private final DownloadOptions options;
     private final NetworkRouter networkRouter;
     private final Listener listener;
@@ -77,6 +77,8 @@ final class HttpDownloader {
     void run() {
         try {
             if (!downloadRoot.exists() && !downloadRoot.mkdirs()) throw new IOException("无法创建下载目录");
+            report(0, "正在获取下载地址…");
+            url = DownloadLinkResolver.resolve(url, networkRouter);
             Probe probe = probe();
             total = probe.size;
             String name = safeName(probe.name);
