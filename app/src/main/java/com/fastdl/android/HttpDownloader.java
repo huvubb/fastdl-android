@@ -33,8 +33,10 @@ final class HttpDownloader {
     // Large enough to keep high-bandwidth connections fed, while 128 active workers
     // remain within a modest memory envelope on phones.
     private static final int BUFFER = 128 * 1024;
-    private static final long MIN_CHUNK = 4L * 1024 * 1024;
-    private static final long MAX_CHUNK = 32L * 1024 * 1024;
+    // Keep enough independent ranges even for 30–200 MB files. A server that
+    // throttles each connection benefits greatly from more small ranges.
+    private static final long MIN_CHUNK = 1L * 1024 * 1024;
+    private static final long MAX_CHUNK = 16L * 1024 * 1024;
     private static final int DEFAULT_THREADS = 128;
 
     private final File downloadRoot;
@@ -282,7 +284,7 @@ final class HttpDownloader {
             c = (HttpURLConnection) target.openConnection(new Proxy(type, new InetSocketAddress(host, port)));
         }
         c.setConnectTimeout(15_000);
-        c.setReadTimeout(60_000);
+        c.setReadTimeout(120_000);
         c.setInstanceFollowRedirects(true);
         c.setUseCaches(false);
         c.setRequestProperty("Connection", "keep-alive");
