@@ -118,7 +118,6 @@ public final class MainActivity extends Activity {
         });
         hero.addView(palette, new LinearLayout.LayoutParams(-2, -2));
         root.addView(hero);
-        applyPalette(preferences.getBoolean("pink", false));
 
         space(root, 18);
         LinearLayout card = new LinearLayout(this);
@@ -148,6 +147,7 @@ public final class MainActivity extends Activity {
         startButton.setOnClickListener(v -> startDownload());
         card.addView(startButton, new LinearLayout.LayoutParams(-1, dp(52)));
         root.addView(card);
+        applyPalette(preferences.getBoolean("pink", false));
 
         space(root, 14);
         LinearLayout monitor = new LinearLayout(this);
