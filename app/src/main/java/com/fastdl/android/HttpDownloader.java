@@ -20,6 +20,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Dependency-free HTTP downloader. State is kept as independent part files, so a
@@ -44,6 +47,7 @@ final class HttpDownloader {
     private final AtomicBoolean stop = new AtomicBoolean(false);
     private final AtomicBoolean discard = new AtomicBoolean(false);
     private final AtomicLong done = new AtomicLong();
+    private final Set<HttpURLConnection> connections = Collections.synchronizedSet(new HashSet<>());
     private volatile long total;
     private volatile long lastReport;
     private long lastRateDone;
@@ -51,7 +55,7 @@ final class HttpDownloader {
 
     HttpDownloader(File downloadRoot, String url, DownloadOptions options, NetworkRouter networkRouter, Listener listener) {
         this.downloadRoot = downloadRoot;
-        this.url = url;
+        this.url = normalizeUrl(url);
         this.options = options == null ? new DownloadOptions(DEFAULT_THREADS, 0, "", new java.util.LinkedHashMap<>(), true) : options;
         this.networkRouter = networkRouter;
         this.limiter = new RateLimiter(this.options.limitBytesPerSecond);
@@ -60,8 +64,15 @@ final class HttpDownloader {
         this.lastRateTime = System.currentTimeMillis();
     }
 
-    void pause() { stop.set(true); }
-    void cancel() { discard.set(true); stop.set(true); }
+    void pause() { stop.set(true); disconnectConnections(); }
+    void cancel() { discard.set(true); stop.set(true); disconnectConnections(); }
+
+    private void disconnectConnections() {
+        synchronized (connections) {
+            for (HttpURLConnection connection : connections) connection.disconnect();
+            connections.clear();
+        }
+    }
 
     void run() {
         try {
@@ -104,7 +115,7 @@ final class HttpDownloader {
             for (int n; !stop.get() && (n = in.read(buffer)) >= 0;) {
                 limiter.acquire(n); memory.write(buffer, 0, n); done.addAndGet(n); reportMaybe();
             }
-        } finally { c.disconnect(); }
+        } finally { close(c); }
         if (discard.get()) { report(0, "下载已取消"); return; }
         if (stop.get()) { report(done.get(), "内存载入已暂停，请重新开始"); return; }
         if (memory.size() != size) throw new IOException("内存载入数据不完整");
@@ -209,7 +220,7 @@ final class HttpDownloader {
                 int lowered = concurrency.backOff();
                 if (lowered > 0) report(done.get(), "连接受限，自动降至 " + lowered + " 路并发");
                 if (attempt == 2) throw new RuntimeException("分片 " + (index + 1) + " 下载失败");
-            } finally { if (c != null) c.disconnect(); concurrency.release(); }
+            } finally { if (c != null) close(c); concurrency.release(); }
         }
     }
 
@@ -227,7 +238,7 @@ final class HttpDownloader {
                 done.addAndGet(n);
                 reportMaybe();
             }
-        } finally { c.disconnect(); }
+        } finally { close(c); }
         if (discard.get()) { partial.delete(); report(0, "下载已取消，临时文件已删除"); return; }
         if (stop.get()) { report(done.get(), "下载已暂停（该服务器不支持断点续传）"); return; }
         if (finalFile.exists() && !finalFile.delete()) throw new IOException("无法替换同名文件");
@@ -249,6 +260,7 @@ final class HttpDownloader {
         }
         c.setConnectTimeout(12_000);
         c.setReadTimeout(60_000);
+        c.setInstanceFollowRedirects(true);
         c.setUseCaches(false);
         c.setRequestProperty("Connection", "keep-alive");
         c.setRequestProperty("Cache-Control", "no-cache");
@@ -256,7 +268,32 @@ final class HttpDownloader {
         if (!options.headers.containsKey("User-Agent")) c.setRequestProperty("User-Agent", "FastDL-Android/0.2");
         for (java.util.Map.Entry<String, String> header : options.headers.entrySet()) c.setRequestProperty(header.getKey(), header.getValue());
         if (range != null) c.setRequestProperty("Range", range);
+        connections.add(c);
         return c;
+    }
+
+    private void close(HttpURLConnection c) {
+        if (c != null) {
+            connections.remove(c);
+            c.disconnect();
+        }
+    }
+
+    /** GitHub's web file pages are HTML; convert blob links to the actual raw file. */
+    private static String normalizeUrl(String input) {
+        if (input == null) return "";
+        try {
+            URI source = new URI(input.trim());
+            if (!"github.com".equalsIgnoreCase(source.getHost())) return input.trim();
+            String[] parts = source.getPath().split("/");
+            if (parts.length >= 6 && "blob".equals(parts[3])) {
+                StringBuilder raw = new StringBuilder("https://raw.githubusercontent.com/")
+                        .append(parts[1]).append('/').append(parts[2]).append('/').append(parts[4]);
+                for (int i = 5; i < parts.length; i++) raw.append('/').append(parts[i]);
+                return raw.toString();
+            }
+        } catch (Exception ignored) { }
+        return input.trim();
     }
 
     private synchronized void reportMaybe() {

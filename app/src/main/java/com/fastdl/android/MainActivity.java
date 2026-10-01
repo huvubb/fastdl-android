@@ -108,7 +108,7 @@ public final class MainActivity extends Activity {
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
         card.setBackgroundResource(R.drawable.bg_card);
         TextView prompt = text("粘贴下载链接", 17, Color.rgb(25, 42, 70));
-        TextView hint = text("支持 HTTP 与 HTTPS，连接、分片与网络策略将自动选择。", 13, Color.rgb(104, 119, 142));
+        TextView hint = text("支持 HTTP、HTTPS 和 GitHub 文件链接，连接与分片策略自动选择。", 13, Color.rgb(104, 119, 142));
         hint.setPadding(0, dp(4), 0, dp(14));
         card.addView(prompt);
         card.addView(hint);
@@ -204,7 +204,7 @@ public final class MainActivity extends Activity {
     private void startDownload() {
         String url = urlInput.getText().toString().trim();
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            status.setText("请输入有效的 HTTP 或 HTTPS 下载链接");
+            status.setText("请输入有效的下载链接");
             return;
         }
         Intent i = new Intent(this, DownloadService.class).setAction(DownloadService.ACTION_START);

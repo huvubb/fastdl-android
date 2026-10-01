@@ -71,6 +71,7 @@ public final class DownloadService extends Service {
         manager.notify(NOTIFICATION_ID, notification(text, done, total));
     }
 
+
     private Notification notification(String text, long done, long total) {
         Intent pause = new Intent(this, DownloadService.class).setAction(ACTION_PAUSE);
         PendingIntent pauseIntent = PendingIntent.getService(this, 1, pause, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
