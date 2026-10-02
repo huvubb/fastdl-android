@@ -151,6 +151,7 @@ public final class MainActivity extends Activity {
         linkCard = new LinearLayout(this);
         linkCard.setOrientation(LinearLayout.VERTICAL);
         linkCard.setPadding(dp(20), dp(20), dp(20), dp(18));
+        linkCard.setBackgroundColor(Color.TRANSPARENT);
         promptText = text("下载链接", 19, Color.rgb(27, 40, 64));
         hintText = text("每行一个链接 · 下载时可继续添加到队尾", 12, Color.rgb(117, 132, 154));
         hintText.setPadding(0, dp(4), 0, dp(12));
@@ -219,6 +220,7 @@ public final class MainActivity extends Activity {
         monitor = new LinearLayout(this);
         monitor.setOrientation(LinearLayout.VERTICAL);
         monitor.setPadding(dp(20), dp(17), dp(20), dp(17));
+        monitor.setBackgroundColor(Color.TRANSPARENT);
         monitor.setBackgroundResource(R.drawable.bg_status);
         LinearLayout monitorHeader = new LinearLayout(this);
         monitorHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -437,12 +439,10 @@ public final class MainActivity extends Activity {
                 pink ? 255 : 247, pink ? 240 : 252, pink ? 248 : 255), dp(34));
         heroGlass.setStroke(dp(1), Color.argb(175, 255, 255, 255));
         hero.setBackground(heroGlass);
-        GradientDrawable cardGlass = glass(Color.argb(26,
-                pink ? 255 : 239, pink ? 245 : 248, pink ? 250 : 255), dp(28));
-        linkCard.setBackground(cardGlass);
-        GradientDrawable statusGlass = glass(Color.argb(24,
-                pink ? 255 : 230, pink ? 229 : 246, pink ? 243 : 255), dp(26));
-        monitor.setBackground(statusGlass);
+        // Content remains a clean content layer. Liquid Glass belongs to the
+        // floating controls/navigation layer, as on iOS.
+        linkCard.setBackgroundColor(Color.TRANSPARENT);
+        monitor.setBackgroundColor(Color.TRANSPARENT);
         GradientDrawable inputGlass = glass(Color.argb(18,
                 pink ? 255 : 247, pink ? 250 : 252, pink ? 252 : 255), dp(20));
         urlInput.setBackground(inputGlass);
