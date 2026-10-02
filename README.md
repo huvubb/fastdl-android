@@ -26,6 +26,13 @@ APK 输出：`app\build\outputs\apk\debug\app-debug.apk`。GitHub Release 会附
 
 项目使用标准 Android SDK Platform 35；请在 SDK Manager 安装该平台。当前 `D:\ad\platforms\android-37.0` 不是 Android Gradle Plugin 可识别的标准平台目录，不能替代它。
 
+
+## 隐私承诺
+本工具默认关闭所有下载反馈。即使你主动开启反馈，也仅上传下载速度和文件大小两项匿名性能指标。
+绝不上传文件名、下载链接、IP 地址、用户标识或任何可关联到具体下载内容的信息。
+你下载了什么，只有你自己知道。
+
+
 ## 当前范围
 
 - 支持 HTTP/HTTPS 直链、多线程 Range 下载与服务器不支持 Range 时的单流回退；自动启用最高 128 路并发，并在网络异常时自动降至 64、32、16 路。
