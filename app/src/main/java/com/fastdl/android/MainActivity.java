@@ -256,6 +256,18 @@ public final class MainActivity extends Activity {
         root.addView(updateButton, new LinearLayout.LayoutParams(-1, dp(44)));
 
         space(root, 10);
+        Button feedback = secondary("反馈与建议");
+        feedback.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/huvubb/fastdl-android/issues/new")));
+            } catch (Exception error) {
+                status.setText("无法打开反馈页面");
+            }
+        });
+        root.addView(feedback, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        space(root, 10);
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
         Button pause = secondary("暂停并清空队列");
