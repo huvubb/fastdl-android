@@ -463,7 +463,16 @@ public final class MainActivity extends Activity {
 
     private GradientDrawable glass(int fill, int radius) {
         GradientDrawable material = new GradientDrawable();
-        material.setColor(fill);
+        int alpha = Color.alpha(fill);
+        int red = Color.red(fill), green = Color.green(fill), blue = Color.blue(fill);
+        // A vertical highlight + tinted lower edge simulates light entering and
+        // refracting through the material while keeping it GPU-cheap.
+        material.setColors(new int[]{
+                Color.argb(Math.min(210, alpha + 70), 255, 255, 255),
+                fill,
+                Color.argb(Math.max(35, alpha - 40), red, green, blue)
+        });
+        material.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM);
         material.setCornerRadius(radius);
         material.setStroke(dp(1), Color.argb(145, 255, 255, 255));
         return material;
