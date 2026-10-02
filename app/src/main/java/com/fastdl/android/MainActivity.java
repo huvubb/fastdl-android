@@ -434,11 +434,11 @@ public final class MainActivity extends Activity {
         // a swapped accent: ice-blue is cool and airy; berry-peach is warm and soft.
         int start = Color.rgb(pink ? 232 : 66, pink ? 67 : 97, pink ? 151 : 233);
         int end = Color.rgb(pink ? 255 : 67, pink ? 157 : 207, pink ? 116 : 248);
-        root.setBackgroundResource(pink ? R.drawable.bg_glass_pink : R.drawable.bg_glass_blue);
+        // Keep the canvas neutral; color belongs to the content layer and the
+        // glass controls, matching the iOS Liquid Glass hierarchy.
+        root.setBackgroundResource(R.drawable.bg_app);
 
-        Drawable heroGlass = glass(Color.argb(42,
-                pink ? 255 : 247, pink ? 240 : 252, pink ? 248 : 255), dp(34));
-        hero.setBackground(heroGlass);
+        hero.setBackgroundResource(pink ? R.drawable.bg_content_pink : R.drawable.bg_content_blue);
         // Content remains a clean content layer. Liquid Glass belongs to the
         // floating controls/navigation layer, as on iOS.
         linkCard.setBackgroundColor(Color.TRANSPARENT);
