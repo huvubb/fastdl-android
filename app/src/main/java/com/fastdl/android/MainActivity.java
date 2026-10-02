@@ -9,6 +9,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
@@ -435,24 +436,23 @@ public final class MainActivity extends Activity {
         int end = Color.rgb(pink ? 255 : 67, pink ? 157 : 207, pink ? 116 : 248);
         root.setBackgroundResource(pink ? R.drawable.bg_glass_pink : R.drawable.bg_glass_blue);
 
-        GradientDrawable heroGlass = glass(Color.argb(42,
+        Drawable heroGlass = glass(Color.argb(42,
                 pink ? 255 : 247, pink ? 240 : 252, pink ? 248 : 255), dp(34));
-        heroGlass.setStroke(dp(1), Color.argb(175, 255, 255, 255));
         hero.setBackground(heroGlass);
         // Content remains a clean content layer. Liquid Glass belongs to the
         // floating controls/navigation layer, as on iOS.
         linkCard.setBackgroundColor(Color.TRANSPARENT);
         monitor.setBackgroundColor(Color.TRANSPARENT);
-        GradientDrawable inputGlass = glass(Color.argb(18,
+        Drawable inputGlass = glass(Color.argb(18,
                 pink ? 255 : 247, pink ? 250 : 252, pink ? 252 : 255), dp(20));
         urlInput.setBackground(inputGlass);
         // Every control uses the same glass material. The primary action gets
         // hierarchy from weight and type, not from an opaque colored block.
-        GradientDrawable actionGlass = glass(Color.argb(20,
+        Drawable actionGlass = glass(Color.argb(20,
                 pink ? 255 : 247, pink ? 235 : 251, pink ? 245 : 255), dp(20));
         startButton.setBackground(actionGlass);
         startButton.setTextColor(primaryTextColor(pink));
-        GradientDrawable palettePill = glass(Color.argb(16, 255, 255, 255), dp(18));
+        Drawable palettePill = glass(Color.argb(16, 255, 255, 255), dp(18));
         palette.setBackground(palettePill);
         palette.setText(pink ? "蓝色" : "粉色");
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(start));
@@ -482,21 +482,8 @@ public final class MainActivity extends Activity {
                 android.content.res.ColorStateList.valueOf(start));
     }
 
-    private GradientDrawable glass(int fill, int radius) {
-        GradientDrawable material = new GradientDrawable();
-        int alpha = Color.alpha(fill);
-        int red = Color.red(fill), green = Color.green(fill), blue = Color.blue(fill);
-        // A vertical highlight + tinted lower edge simulates light entering and
-        // refracting through the material while keeping it GPU-cheap.
-        material.setColors(new int[]{
-                Color.argb(Math.min(210, alpha + 70), 255, 255, 255),
-                fill,
-                Color.argb(Math.max(35, alpha - 40), red, green, blue)
-        });
-        material.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM);
-        material.setCornerRadius(radius);
-        material.setStroke(dp(1), Color.argb(145, 255, 255, 255));
-        return material;
+    private Drawable glass(int fill, int radius) {
+        return new LiquidGlassDrawable(fill, radius);
     }
 
     private int primaryTextColor(boolean pink) {
