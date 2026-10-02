@@ -36,8 +36,8 @@ final class LiquidGlassDrawable extends Drawable {
         int a = Color.alpha(tint);
         int r = Color.red(tint), g = Color.green(tint), b = Color.blue(tint);
         fill.setShader(new LinearGradient(0, box.top, 0, box.bottom,
-                new int[]{Color.argb(Math.min(145, a + 55), 255, 255, 255), tint,
-                        Color.argb(Math.max(12, a - 12), r, g, b)},
+                new int[]{Color.argb(Math.min(92, a + 24), 255, 255, 255), tint,
+                        Color.argb(Math.max(4, a - 12), r, g, b)},
                 new float[]{0f, .42f, 1f}, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(box, radius, radius, fill);
 
@@ -46,7 +46,7 @@ final class LiquidGlassDrawable extends Drawable {
                 Color.argb(210, 255, 255, 255), Color.argb(70, 255, 255, 255), Shader.TileMode.CLAMP));
         canvas.drawRoundRect(box, radius, radius, rim);
 
-        float glow = Math.max(30, Math.min(150, a + 40));
+        float glow = Math.max(22, Math.min(100, a + 26));
         shine.setStrokeWidth(Math.max(2f, box.width() * .006f));
         shine.setShader(new RadialGradient(box.left + box.width() * .2f,
                 box.top + box.height() * .1f, box.width() * .65f,
