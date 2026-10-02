@@ -37,12 +37,17 @@ public final class MainActivity extends Activity {
     private ProgressBar progress;
     private TextView palette;
     private SharedPreferences preferences;
+    private LinearLayout root;
     private LinearLayout hero;
+    private LinearLayout linkCard;
+    private LinearLayout monitor;
     private ImageView mark;
     private Button startButton;
     private Button folderButton;
     private Button openLatestButton;
+    private Button updateButton;
     private LinearLayout advancedPanel;
+    private final ArrayList<Button> glassButtons = new ArrayList<>();
     private CheckBox improvementPlan;
     private Spinner debugThreads;
     private long lastSpeedDone;
@@ -94,19 +99,21 @@ public final class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
         int pad = dp(20);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundResource(R.drawable.bg_app);
+        scroll.setBackgroundColor(Color.TRANSPARENT);
 
-        LinearLayout root = new LinearLayout(this);
+        root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, dp(14), pad, dp(18));
         scroll.addView(root);
 
         hero = new LinearLayout(this);
         hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(dp(22), dp(20), dp(22), dp(20));
+        hero.setPadding(dp(22), dp(18), dp(22), dp(18));
         hero.setBackgroundResource(R.drawable.bg_hero);
         mark = new ImageView(this);
         mark.setImageResource(R.drawable.ic_fastdl);
@@ -134,15 +141,14 @@ public final class MainActivity extends Activity {
         root.addView(hero);
 
         space(root, 14);
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(20), dp(20), dp(18));
-        card.setBackgroundResource(R.drawable.bg_card);
+        linkCard = new LinearLayout(this);
+        linkCard.setOrientation(LinearLayout.VERTICAL);
+        linkCard.setPadding(dp(20), dp(20), dp(20), dp(18));
         TextView prompt = text("下载链接", 19, Color.rgb(27, 40, 64));
         TextView hint = text("每行一个链接 · 下载时可继续添加到队尾", 12, Color.rgb(117, 132, 154));
         hint.setPadding(0, dp(4), 0, dp(12));
-        card.addView(prompt);
-        card.addView(hint);
+        linkCard.addView(prompt);
+        linkCard.addView(hint);
         urlInput = new EditText(this);
         urlInput.setHint("粘贴一个或多个下载链接，每行一个");
         urlInput.setTextSize(15);
@@ -152,8 +158,8 @@ public final class MainActivity extends Activity {
         urlInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         urlInput.setBackgroundResource(R.drawable.bg_url);
         urlInput.setPadding(dp(14), 0, dp(14), 0);
-        card.addView(urlInput, new LinearLayout.LayoutParams(-1, dp(82)));
-        space(card, 14);
+        linkCard.addView(urlInput, new LinearLayout.LayoutParams(-1, dp(82)));
+        space(linkCard, 14);
         startButton = new Button(this);
         startButton.setAllCaps(false);
         startButton.setText("开始下载 / 加入队列");
@@ -161,17 +167,17 @@ public final class MainActivity extends Activity {
         startButton.setTextColor(Color.WHITE);
         startButton.setBackgroundResource(R.drawable.bg_primary);
         startButton.setOnClickListener(v -> startDownload());
-        card.addView(startButton, new LinearLayout.LayoutParams(-1, dp(54)));
+        linkCard.addView(startButton, new LinearLayout.LayoutParams(-1, dp(54)));
         folderButton = secondary("保存到：系统下载");
         folderButton.setOnClickListener(v -> chooseFolder());
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(-1, dp(44));
         folderParams.topMargin = dp(8);
-        card.addView(folderButton, folderParams);
+        linkCard.addView(folderButton, folderParams);
         Button advanced = secondary("高级设置 · 128 路连接");
         advanced.setTextSize(13);
         LinearLayout.LayoutParams advancedParams = new LinearLayout.LayoutParams(-1, dp(40));
         advancedParams.topMargin = dp(6);
-        card.addView(advanced, advancedParams);
+        linkCard.addView(advanced, advancedParams);
         advancedPanel = new LinearLayout(this);
         advancedPanel.setOrientation(LinearLayout.VERTICAL);
         advancedPanel.setVisibility(View.GONE);
@@ -194,17 +200,16 @@ public final class MainActivity extends Activity {
         improvementPlan.setOnCheckedChangeListener((button, checked) ->
                 preferences.edit().putBoolean("improvement_plan", checked).apply());
         advancedPanel.addView(improvementPlan, new LinearLayout.LayoutParams(-1, dp(36)));
-        card.addView(advancedPanel);
+        linkCard.addView(advancedPanel);
         advanced.setOnClickListener(v -> {
             boolean show = advancedPanel.getVisibility() != View.VISIBLE;
             advancedPanel.setVisibility(show ? View.VISIBLE : View.GONE);
             advanced.setText(show ? "收起高级设置" : "高级设置 · " + debugThreads.getSelectedItem() + "连接");
         });
-        root.addView(card);
-        applyPalette(preferences.getBoolean("pink", false));
+        root.addView(linkCard);
 
         space(root, 12);
-        LinearLayout monitor = new LinearLayout(this);
+        monitor = new LinearLayout(this);
         monitor.setOrientation(LinearLayout.VERTICAL);
         monitor.setPadding(dp(20), dp(17), dp(20), dp(17));
         monitor.setBackgroundResource(R.drawable.bg_status);
@@ -236,6 +241,11 @@ public final class MainActivity extends Activity {
         root.addView(openLatestButton, new LinearLayout.LayoutParams(-1, dp(48)));
 
         space(root, 10);
+        updateButton = secondary("检查更新");
+        updateButton.setOnClickListener(v -> checkForUpdate());
+        root.addView(updateButton, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        space(root, 10);
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
         Button pause = secondary("暂停并清空队列");
@@ -253,6 +263,7 @@ public final class MainActivity extends Activity {
         note.setLineSpacing(dp(3), 1f);
         note.setPadding(dp(10), dp(18), dp(10), 0);
         root.addView(note);
+        applyPalette(preferences.getBoolean("pink", false));
         setContentView(scroll);
     }
 
@@ -263,6 +274,7 @@ public final class MainActivity extends Activity {
         button.setTextSize(14);
         button.setTextColor(Color.rgb(50, 84, 136));
         button.setBackgroundResource(R.drawable.bg_secondary);
+        glassButtons.add(button);
         return button;
     }
 
@@ -346,22 +358,115 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void checkForUpdate() {
+        updateButton.setEnabled(false);
+        updateButton.setText("正在检查更新…");
+        status.setText("正在向 GitHub 查询最新版本");
+        new Thread(() -> {
+            try {
+                UpdateChecker.Result result = UpdateChecker.latest(this);
+                runOnUiThread(() -> {
+                    updateButton.setEnabled(true);
+                    updateButton.setText("检查更新");
+                    if (!result.isNewer) {
+                        status.setText(result.currentVersion.equals(result.version)
+                                ? "已是最新版本（" + result.currentVersion + "）"
+                                : "本机 " + result.currentVersion + " 高于 GitHub 发行版 " + result.version);
+                        return;
+                    }
+                    status.setText("发现 " + result.version + "，正在下载更新包");
+                    updateButton.setText("正在下载 " + result.version);
+                    downloadAndInstallUpdate(result);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    updateButton.setEnabled(true);
+                    updateButton.setText("检查更新");
+                    status.setText("检查更新失败：" + safeMessage(error));
+                });
+            }
+        }, "fastdl-update-check").start();
+    }
+
+    private void downloadAndInstallUpdate(UpdateChecker.Result result) {
+        new Thread(() -> {
+            try {
+                Uri apk = UpdateChecker.download(this, result.apkUrl, result.version,
+                        (done, total) -> runOnUiThread(() -> updateButton.setText(
+                                total > 0 ? "下载更新 " + (done * 100 / total) + "%" : "正在下载更新")));
+                runOnUiThread(() -> {
+                    updateButton.setEnabled(true);
+                    updateButton.setText("检查更新");
+                    status.setText("更新包已下载，正在打开系统安装器");
+                    UpdateChecker.install(this, apk);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    updateButton.setEnabled(true);
+                    updateButton.setText("检查更新");
+                    status.setText("更新下载失败：" + safeMessage(error));
+                });
+            }
+        }, "fastdl-update-download").start();
+    }
+
+    private static String safeMessage(Exception error) {
+        String text = error.getMessage();
+        return text == null || text.trim().isEmpty() ? "请检查网络后重试" : text;
+    }
+
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density);
     }
 
     private void applyPalette(boolean pink) {
-        int start = Color.rgb(pink ? 224 : 20, pink ? 72 : 89, pink ? 135 : 217);
-        int end = Color.rgb(pink ? 248 : 40, pink ? 119 : 126, pink ? 166 : 242);
-        GradientDrawable heroGradient = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{start, end});
-        heroGradient.setCornerRadius(dp(24));
+        // The themes intentionally use different temperature and contrast, not merely
+        // a swapped accent: ice-blue is cool and airy; berry-peach is warm and soft.
+        int start = Color.rgb(pink ? 232 : 66, pink ? 67 : 97, pink ? 151 : 233);
+        int end = Color.rgb(pink ? 255 : 67, pink ? 157 : 207, pink ? 116 : 248);
+        root.setBackgroundResource(pink ? R.drawable.bg_glass_pink : R.drawable.bg_glass_blue);
+
+        GradientDrawable heroGradient = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.argb(145, Color.red(start), Color.green(start), Color.blue(start)),
+                        Color.argb(105, Color.red(end), Color.green(end), Color.blue(end))});
+        heroGradient.setCornerRadius(dp(34));
+        heroGradient.setStroke(dp(1), Color.argb(175, 255, 255, 255));
         hero.setBackground(heroGradient);
-        GradientDrawable actionGradient = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{start, end});
-        actionGradient.setCornerRadius(dp(16));
+        GradientDrawable cardGlass = glass(Color.argb(106,
+                pink ? 255 : 239, pink ? 245 : 248, pink ? 250 : 255), dp(28));
+        linkCard.setBackground(cardGlass);
+        GradientDrawable statusGlass = glass(Color.argb(96,
+                pink ? 255 : 230, pink ? 229 : 246, pink ? 243 : 255), dp(26));
+        monitor.setBackground(statusGlass);
+        GradientDrawable inputGlass = glass(Color.argb(92,
+                pink ? 255 : 247, pink ? 250 : 252, pink ? 252 : 255), dp(20));
+        urlInput.setBackground(inputGlass);
+        GradientDrawable actionGradient = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{start, end});
+        actionGradient.setCornerRadius(dp(20));
+        actionGradient.setStroke(dp(1), Color.argb(120, 255, 255, 255));
         startButton.setBackground(actionGradient);
+        GradientDrawable palettePill = glass(Color.argb(42, 255, 255, 255), dp(18));
+        palette.setBackground(palettePill);
+        palette.setText(pink ? "蓝色" : "粉色");
+        progress.setProgressTintList(android.content.res.ColorStateList.valueOf(start));
+        int secondaryText = Color.rgb(pink ? 133 : 37, pink ? 52 : 84, pink ? 97 : 151);
+        for (Button button : glassButtons) {
+            button.setTextColor(secondaryText);
+            button.setBackground(glass(Color.argb(76,
+                    pink ? 255 : 241, pink ? 250 : 248, pink ? 252 : 255), dp(20)));
+        }
         if (mark != null) mark.setImageResource(pink ? R.drawable.ic_fastdl_pink : R.drawable.ic_fastdl);
         if (improvementPlan != null) improvementPlan.setButtonTintList(
                 android.content.res.ColorStateList.valueOf(start));
+    }
+
+    private GradientDrawable glass(int fill, int radius) {
+        GradientDrawable material = new GradientDrawable();
+        material.setColor(fill);
+        material.setCornerRadius(radius);
+        material.setStroke(dp(1), Color.argb(145, 255, 255, 255));
+        return material;
     }
 
     private static String pretty(long bytes) {
