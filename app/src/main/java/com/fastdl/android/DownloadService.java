@@ -111,6 +111,7 @@ public final class DownloadService extends Service {
             getContentResolver().update(uri, ready, null, null);
             report(source.length(), source.length(), "下载完成，已保存到：下载/FastDL/" + source.getName());
             createShortcut(source.getName(), uri);
+            openFile(uri, source.getName());
             return true;
         } catch (Exception error) {
             getContentResolver().delete(uri, null, null);
@@ -132,6 +133,7 @@ public final class DownloadService extends Service {
             }
             report(source.length(), source.length(), "下载完成，已保存到：选择的文件夹/" + source.getName());
             createShortcut(source.getName(), uri);
+            openFile(uri, source.getName());
             return true;
         } catch (Exception error) {
             return false;
@@ -152,6 +154,16 @@ public final class DownloadService extends Service {
                     .setIntent(open).build();
             manager.requestPinShortcut(shortcut, null);
         } catch (Exception ignored) { }
+    }
+
+    private void openFile(Uri uri, String name) {
+        try {
+            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime(name))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(open);
+        } catch (Exception ignored) {
+            // The notification remains available so the user can open it manually.
+        }
     }
 
     private static String mime(String name) {
