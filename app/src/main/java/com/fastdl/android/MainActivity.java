@@ -42,6 +42,7 @@ public final class MainActivity extends Activity {
     private Button startButton;
     private Button folderButton;
     private Button openLatestButton;
+    private LinearLayout advancedPanel;
     private CheckBox improvementPlan;
     private Spinner debugThreads;
     private long lastSpeedDone;
@@ -100,12 +101,12 @@ public final class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(pad, dp(18), pad, pad);
+        root.setPadding(pad, dp(14), pad, dp(18));
         scroll.addView(root);
 
         hero = new LinearLayout(this);
         hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(dp(22), dp(22), dp(22), dp(22));
+        hero.setPadding(dp(22), dp(20), dp(22), dp(20));
         hero.setBackgroundResource(R.drawable.bg_hero);
         mark = new ImageView(this);
         mark.setImageResource(R.drawable.ic_fastdl);
@@ -114,9 +115,9 @@ public final class MainActivity extends Activity {
         LinearLayout heroText = new LinearLayout(this);
         heroText.setOrientation(LinearLayout.VERTICAL);
         heroText.setPadding(dp(14), 0, 0, 0);
-        TextView title = text("FastDL", 27, Color.WHITE);
+        TextView title = text("FastDL", 30, Color.WHITE);
         title.setLetterSpacing(0.02f);
-        TextView subtitle = text("下载队列 · 稳定直链", 14, Color.rgb(213, 231, 255));
+        TextView subtitle = text("FAST · SIMPLE · RELIABLE", 11, Color.rgb(220, 235, 255));
         heroText.addView(title);
         heroText.addView(subtitle);
         hero.addView(heroText, new LinearLayout.LayoutParams(0, -2, 1));
@@ -132,14 +133,14 @@ public final class MainActivity extends Activity {
         hero.addView(palette, new LinearLayout.LayoutParams(-2, -2));
         root.addView(hero);
 
-        space(root, 18);
+        space(root, 14);
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(18), dp(18), dp(18));
+        card.setPadding(dp(20), dp(20), dp(20), dp(18));
         card.setBackgroundResource(R.drawable.bg_card);
-        TextView prompt = text("新建下载队列", 18, Color.rgb(25, 42, 70));
-        TextView hint = text("每行一个 HTTP/HTTPS 链接。下载中也能继续添加，新链接会排在队尾。", 13, Color.rgb(104, 119, 142));
-        hint.setPadding(0, dp(4), 0, dp(14));
+        TextView prompt = text("下载链接", 19, Color.rgb(27, 40, 64));
+        TextView hint = text("每行一个链接 · 下载时可继续添加到队尾", 12, Color.rgb(117, 132, 154));
+        hint.setPadding(0, dp(4), 0, dp(12));
         card.addView(prompt);
         card.addView(hint);
         urlInput = new EditText(this);
@@ -156,28 +157,34 @@ public final class MainActivity extends Activity {
         startButton = new Button(this);
         startButton.setAllCaps(false);
         startButton.setText("开始下载 / 加入队列");
-        startButton.setTextSize(16);
+        startButton.setTextSize(17);
         startButton.setTextColor(Color.WHITE);
         startButton.setBackgroundResource(R.drawable.bg_primary);
         startButton.setOnClickListener(v -> startDownload());
-        card.addView(startButton, new LinearLayout.LayoutParams(-1, dp(52)));
+        card.addView(startButton, new LinearLayout.LayoutParams(-1, dp(54)));
         folderButton = secondary("保存到：系统下载");
         folderButton.setOnClickListener(v -> chooseFolder());
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(-1, dp(44));
         folderParams.topMargin = dp(8);
         card.addView(folderButton, folderParams);
-        // Local benchmark control. This stays in the debug APK only and lets
-        // the device measure a real download without exposing the service.
+        Button advanced = secondary("高级设置 · 128 路连接");
+        advanced.setTextSize(13);
+        LinearLayout.LayoutParams advancedParams = new LinearLayout.LayoutParams(-1, dp(40));
+        advancedParams.topMargin = dp(6);
+        card.addView(advanced, advancedParams);
+        advancedPanel = new LinearLayout(this);
+        advancedPanel.setOrientation(LinearLayout.VERTICAL);
+        advancedPanel.setVisibility(View.GONE);
         TextView debugLabel = text("下载线程（本机测速选择）", 12, Color.rgb(85, 111, 151));
-        debugLabel.setPadding(0, dp(6), 0, 0);
-        card.addView(debugLabel);
+        debugLabel.setPadding(0, dp(7), 0, 0);
+        advancedPanel.addView(debugLabel);
         debugThreads = new Spinner(this);
         String[] threadChoices = {"8 路", "16 路", "32 路", "64 路", "128 路"};
         ArrayAdapter<String> threadAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_dropdown_item, threadChoices);
         debugThreads.setAdapter(threadAdapter);
         debugThreads.setSelection(4);
-        card.addView(debugThreads, new LinearLayout.LayoutParams(-1, dp(42)));
+        advancedPanel.addView(debugThreads, new LinearLayout.LayoutParams(-1, dp(40)));
         improvementPlan = new CheckBox(this);
         improvementPlan.setText("加入用户改进计划（可随时关闭）");
         improvementPlan.setTextSize(12);
@@ -186,18 +193,24 @@ public final class MainActivity extends Activity {
         improvementPlan.setPadding(0, dp(6), 0, 0);
         improvementPlan.setOnCheckedChangeListener((button, checked) ->
                 preferences.edit().putBoolean("improvement_plan", checked).apply());
-        card.addView(improvementPlan, new LinearLayout.LayoutParams(-1, dp(38)));
+        advancedPanel.addView(improvementPlan, new LinearLayout.LayoutParams(-1, dp(36)));
+        card.addView(advancedPanel);
+        advanced.setOnClickListener(v -> {
+            boolean show = advancedPanel.getVisibility() != View.VISIBLE;
+            advancedPanel.setVisibility(show ? View.VISIBLE : View.GONE);
+            advanced.setText(show ? "收起高级设置" : "高级设置 · " + debugThreads.getSelectedItem() + "连接");
+        });
         root.addView(card);
         applyPalette(preferences.getBoolean("pink", false));
 
-        space(root, 14);
+        space(root, 12);
         LinearLayout monitor = new LinearLayout(this);
         monitor.setOrientation(LinearLayout.VERTICAL);
-        monitor.setPadding(dp(18), dp(16), dp(18), dp(16));
+        monitor.setPadding(dp(20), dp(17), dp(20), dp(17));
         monitor.setBackgroundResource(R.drawable.bg_status);
         LinearLayout monitorHeader = new LinearLayout(this);
         monitorHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView monitorTitle = text("传输进度", 15, Color.rgb(47, 80, 128));
+        TextView monitorTitle = text("传输进度", 16, Color.rgb(47, 80, 128));
         percent = text("0%", 17, Color.rgb(25, 92, 192));
         percent.setGravity(Gravity.RIGHT);
         monitorHeader.addView(monitorTitle, new LinearLayout.LayoutParams(0, -2, 1));
@@ -235,7 +248,7 @@ public final class MainActivity extends Activity {
         controls.addView(cancel, new LinearLayout.LayoutParams(0, dp(48), 1));
         root.addView(controls);
 
-        TextView note = text("下载完成后保存在系统 下载/FastDL。可直接点上方按钮打开最近一个文件。", 12, Color.rgb(120, 132, 150));
+        TextView note = text("文件保存至 下载/FastDL · 完成后可直接打开", 12, Color.rgb(120, 132, 150));
         note.setGravity(Gravity.CENTER);
         note.setLineSpacing(dp(3), 1f);
         note.setPadding(dp(10), dp(18), dp(10), 0);
