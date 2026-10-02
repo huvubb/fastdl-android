@@ -9,7 +9,16 @@ android {
         applicationId 'com.fastdl.android'
         minSdk 26
         targetSdk 35
-        versionCode 18
-        versionName '1.7.0'
+        versionCode 19
+        versionName '1.8.0'
+    }
+
+    buildTypes {
+        release {
+            // Keep the local debug signing key so test installs can upgrade
+            // smoothly while this project is still in preview distribution.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
     }
 }
