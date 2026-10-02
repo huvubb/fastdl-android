@@ -35,6 +35,7 @@ public final class MainActivity extends Activity {
     private TextView status;
     private TextView percent;
     private TextView speed;
+    private TextView remaining;
     private ProgressBar progress;
     private ProgressBar loading;
     private TextView promptText;
@@ -82,8 +83,10 @@ public final class MainActivity extends Activity {
                 int value = (int) Math.min(100, done * 100 / total);
                 progress.setProgress(value, true);
                 percent.setText(value + "%");
+                remaining.setText(remainingText(total - done, bytesPerSecond));
             } else {
                 percent.setText("准备中");
+                remaining.setText("预计剩余  正在计算…");
             }
         }
     };
@@ -241,6 +244,8 @@ public final class MainActivity extends Activity {
         status.setPadding(0, dp(7), 0, dp(3));
         speed = text("当前速度  0 KB/s", 13, Color.rgb(85, 111, 151));
         speed.setPadding(0, 0, 0, dp(12));
+        remaining = text("预计剩余  等待下载", 13, Color.rgb(85, 111, 151));
+        remaining.setPadding(0, 0, 0, dp(12));
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
         progress.setIndeterminate(false);
@@ -251,6 +256,7 @@ public final class MainActivity extends Activity {
         monitor.addView(monitorHeader);
         monitor.addView(status);
         monitor.addView(speed);
+        monitor.addView(remaining);
         monitor.addView(progress, new LinearLayout.LayoutParams(-1, dp(8)));
         LinearLayout loadingRow = new LinearLayout(this);
         loadingRow.setGravity(Gravity.CENTER);
@@ -530,6 +536,17 @@ public final class MainActivity extends Activity {
 
     private int primaryTextColor(boolean pink) {
         return Color.rgb(pink ? 86 : 20, pink ? 30 : 58, pink ? 59 : 106);
+    }
+
+    private static String remainingText(long bytesLeft, long bytesPerSecond) {
+        if (bytesLeft <= 0) return "预计剩余  已完成";
+        if (bytesPerSecond <= 0) return "预计剩余  正在计算…";
+        long seconds = (bytesLeft + bytesPerSecond - 1) / bytesPerSecond;
+        if (seconds >= 3600) return String.format(java.util.Locale.CHINA,
+                "预计剩余  %d小时%d分", seconds / 3600, (seconds % 3600) / 60);
+        if (seconds >= 60) return String.format(java.util.Locale.CHINA,
+                "预计剩余  %d分%d秒", seconds / 60, seconds % 60);
+        return "预计剩余  " + seconds + "秒";
     }
 
     private static String pretty(long bytes) {
