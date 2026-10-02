@@ -40,6 +40,8 @@ public final class MainActivity extends Activity {
     private TextView monitorTitleText;
     private TextView noteText;
     private TextView debugLabelText;
+    private TextView heroTitleText;
+    private TextView heroSubtitleText;
     private TextView palette;
     private SharedPreferences preferences;
     private LinearLayout root;
@@ -127,11 +129,11 @@ public final class MainActivity extends Activity {
         LinearLayout heroText = new LinearLayout(this);
         heroText.setOrientation(LinearLayout.VERTICAL);
         heroText.setPadding(dp(14), 0, 0, 0);
-        TextView title = text("FastDL", 30, Color.WHITE);
-        title.setLetterSpacing(0.02f);
-        TextView subtitle = text("FAST · SIMPLE · RELIABLE", 11, Color.rgb(220, 235, 255));
-        heroText.addView(title);
-        heroText.addView(subtitle);
+        heroTitleText = text("FastDL", 30, Color.WHITE);
+        heroTitleText.setLetterSpacing(0.02f);
+        heroSubtitleText = text("FAST · SIMPLE · RELIABLE", 11, Color.rgb(220, 235, 255));
+        heroText.addView(heroTitleText);
+        heroText.addView(heroSubtitleText);
         hero.addView(heroText, new LinearLayout.LayoutParams(0, -2, 1));
         palette = text(preferences.getBoolean("pink", false) ? "蓝色" : "粉色", 13, Color.WHITE);
         palette.setGravity(Gravity.CENTER);
@@ -431,33 +433,34 @@ public final class MainActivity extends Activity {
         int end = Color.rgb(pink ? 255 : 67, pink ? 157 : 207, pink ? 116 : 248);
         root.setBackgroundResource(pink ? R.drawable.bg_glass_pink : R.drawable.bg_glass_blue);
 
-        GradientDrawable heroGradient = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.argb(145, Color.red(start), Color.green(start), Color.blue(start)),
-                        Color.argb(105, Color.red(end), Color.green(end), Color.blue(end))});
-        heroGradient.setCornerRadius(dp(34));
-        heroGradient.setStroke(dp(1), Color.argb(175, 255, 255, 255));
-        hero.setBackground(heroGradient);
-        GradientDrawable cardGlass = glass(Color.argb(62,
+        GradientDrawable heroGlass = glass(Color.argb(42,
+                pink ? 255 : 247, pink ? 240 : 252, pink ? 248 : 255), dp(34));
+        heroGlass.setStroke(dp(1), Color.argb(175, 255, 255, 255));
+        hero.setBackground(heroGlass);
+        GradientDrawable cardGlass = glass(Color.argb(26,
                 pink ? 255 : 239, pink ? 245 : 248, pink ? 250 : 255), dp(28));
         linkCard.setBackground(cardGlass);
-        GradientDrawable statusGlass = glass(Color.argb(56,
+        GradientDrawable statusGlass = glass(Color.argb(24,
                 pink ? 255 : 230, pink ? 229 : 246, pink ? 243 : 255), dp(26));
         monitor.setBackground(statusGlass);
-        GradientDrawable inputGlass = glass(Color.argb(42,
+        GradientDrawable inputGlass = glass(Color.argb(18,
                 pink ? 255 : 247, pink ? 250 : 252, pink ? 252 : 255), dp(20));
         urlInput.setBackground(inputGlass);
         // Every control uses the same glass material. The primary action gets
         // hierarchy from weight and type, not from an opaque colored block.
-        GradientDrawable actionGlass = glass(Color.argb(46,
+        GradientDrawable actionGlass = glass(Color.argb(20,
                 pink ? 255 : 247, pink ? 235 : 251, pink ? 245 : 255), dp(20));
         startButton.setBackground(actionGlass);
         startButton.setTextColor(primaryTextColor(pink));
-        GradientDrawable palettePill = glass(Color.argb(28, 255, 255, 255), dp(18));
+        GradientDrawable palettePill = glass(Color.argb(16, 255, 255, 255), dp(18));
         palette.setBackground(palettePill);
         palette.setText(pink ? "蓝色" : "粉色");
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(start));
         int secondaryText = Color.rgb(pink ? 133 : 37, pink ? 52 : 84, pink ? 97 : 151);
         int primaryText = primaryTextColor(pink);
+        heroTitleText.setTextColor(primaryText);
+        heroSubtitleText.setTextColor(secondaryText);
+        palette.setTextColor(secondaryText);
         promptText.setTextColor(primaryText);
         hintText.setTextColor(secondaryText);
         status.setTextColor(primaryText);
@@ -471,7 +474,7 @@ public final class MainActivity extends Activity {
         urlInput.setHintTextColor(Color.argb(180, Color.red(secondaryText), Color.green(secondaryText), Color.blue(secondaryText)));
         for (Button button : glassButtons) {
             button.setTextColor(secondaryText);
-            button.setBackground(glass(Color.argb(38,
+            button.setBackground(glass(Color.argb(18,
                     pink ? 255 : 241, pink ? 250 : 248, pink ? 252 : 255), dp(20)));
         }
         if (mark != null) mark.setImageResource(pink ? R.drawable.ic_fastdl_pink : R.drawable.ic_fastdl);
