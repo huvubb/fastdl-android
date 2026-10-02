@@ -446,17 +446,18 @@ public final class MainActivity extends Activity {
         GradientDrawable inputGlass = glass(Color.argb(42,
                 pink ? 255 : 247, pink ? 250 : 252, pink ? 252 : 255), dp(20));
         urlInput.setBackground(inputGlass);
-        GradientDrawable actionGradient = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{start, end});
-        actionGradient.setCornerRadius(dp(20));
-        actionGradient.setStroke(dp(1), Color.argb(120, 255, 255, 255));
-        startButton.setBackground(actionGradient);
+        // Every control uses the same glass material. The primary action gets
+        // hierarchy from weight and type, not from an opaque colored block.
+        GradientDrawable actionGlass = glass(Color.argb(46,
+                pink ? 255 : 247, pink ? 235 : 251, pink ? 245 : 255), dp(20));
+        startButton.setBackground(actionGlass);
+        startButton.setTextColor(primaryTextColor(pink));
         GradientDrawable palettePill = glass(Color.argb(28, 255, 255, 255), dp(18));
         palette.setBackground(palettePill);
         palette.setText(pink ? "蓝色" : "粉色");
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(start));
         int secondaryText = Color.rgb(pink ? 133 : 37, pink ? 52 : 84, pink ? 97 : 151);
-        int primaryText = Color.rgb(pink ? 86 : 20, pink ? 30 : 58, pink ? 59 : 106);
+        int primaryText = primaryTextColor(pink);
         promptText.setTextColor(primaryText);
         hintText.setTextColor(secondaryText);
         status.setTextColor(primaryText);
@@ -493,6 +494,10 @@ public final class MainActivity extends Activity {
         material.setCornerRadius(radius);
         material.setStroke(dp(1), Color.argb(145, 255, 255, 255));
         return material;
+    }
+
+    private int primaryTextColor(boolean pink) {
+        return Color.rgb(pink ? 86 : 20, pink ? 30 : 58, pink ? 59 : 106);
     }
 
     private static String pretty(long bytes) {
