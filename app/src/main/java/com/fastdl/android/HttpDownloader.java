@@ -32,11 +32,12 @@ final class HttpDownloader {
     interface Listener { void update(long done, long total, String status); }
     // Large enough to keep high-bandwidth connections fed, while 128 active workers
     // remain within a modest memory envelope on phones.
-    private static final int BUFFER = 128 * 1024;
-    // Keep enough independent ranges even for 30–200 MB files. A server that
-    // throttles each connection benefits greatly from more small ranges.
-    private static final long MIN_CHUNK = 1L * 1024 * 1024;
-    private static final long MAX_CHUNK = 16L * 1024 * 1024;
+    private static final int BUFFER = 512 * 1024;
+    // Keep ranges large enough for GitHub's signed CDN, while giving phones
+    // more than two active transfers for a 30–40 MiB APK.
+    private static final long MIN_CHUNK = 8L * 1024 * 1024;
+    private static final long MAX_CHUNK = 32L * 1024 * 1024;
+    private static final long MEMORY_LIMIT = 8L * 1024 * 1024;
     private static final int DEFAULT_THREADS = 128;
 
     private final File downloadRoot;
@@ -107,7 +108,9 @@ final class HttpDownloader {
     /** Small files avoid part-file I/O; large files always stay on disk to prevent OOM. */
     private boolean canUseMemory(long size) {
         if (size <= 0 || size > Integer.MAX_VALUE) return false;
-        long safe = Math.min(128L << 20, Runtime.getRuntime().maxMemory() / 4);
+        // Keep the requested memory-loading mode, but do not let it bypass
+        // multi-range acceleration for APKs and other medium-sized files.
+        long safe = Math.min(MEMORY_LIMIT, Runtime.getRuntime().maxMemory() / 4);
         return size <= safe;
     }
 
@@ -133,13 +136,13 @@ final class HttpDownloader {
 
     private Probe probe() throws IOException {
         IOException last = null;
-        for (int attempt = 0; attempt < 3 && !stop.get(); attempt++) {
+        for (int attempt = 0; attempt < 4 && !stop.get(); attempt++) {
             try {
-                report(0, attempt == 0 ? "连接服务器…" : "连接失败，正在重试（" + (attempt + 1) + "/3）…");
+                report(0, attempt == 0 ? "连接服务器…" : "连接失败，正在重试（" + (attempt + 1) + "/4）…");
                 return probeOnce();
             } catch (IOException error) {
                 last = error;
-                if (attempt < 2) {
+                if (attempt < 3) {
                     try { Thread.sleep(700L << attempt); }
                     catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
                 }
@@ -219,7 +222,7 @@ final class HttpDownloader {
         long start = index * chunk;
         long end = Math.min(size - 1, start + chunk - 1);
         File target = part(work, index);
-        for (int attempt = 0; attempt < 3 && !stop.get(); attempt++) {
+        for (int attempt = 0; attempt < 4 && !stop.get(); attempt++) {
             long have = target.exists() ? target.length() : 0;
             if (start + have > end) return;
             if (!concurrency.acquire(stop)) return;
@@ -242,7 +245,7 @@ final class HttpDownloader {
             } catch (IOException ignored) {
                 int lowered = concurrency.backOff();
                 if (lowered > 0) report(done.get(), "连接受限，自动降至 " + lowered + " 路并发");
-                if (attempt == 2) throw new RuntimeException("分片 " + (index + 1) + " 下载失败");
+                if (attempt == 3) throw new RuntimeException("分片 " + (index + 1) + " 下载失败");
                 try { Thread.sleep(250L << attempt); }
                 catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); return; }
             } finally { if (c != null) close(c); concurrency.release(); }
@@ -301,7 +304,9 @@ final class HttpDownloader {
     private void close(HttpURLConnection c) {
         if (c != null) {
             connections.remove(c);
-            c.disconnect();
+            // Closing the response stream is enough for normal completion and
+            // lets HttpURLConnection reuse the keep-alive socket. Explicit
+            // disconnect remains in pause()/cancel() via disconnectConnections().
         }
     }
 

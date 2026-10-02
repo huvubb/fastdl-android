@@ -22,6 +22,7 @@ import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.content.SharedPreferences;
+import android.net.Uri;
 
 /** A deliberately focused download screen: people paste a URL and the engine chooses the rest. */
 public final class MainActivity extends Activity {
@@ -34,6 +35,7 @@ public final class MainActivity extends Activity {
     private SharedPreferences preferences;
     private LinearLayout hero;
     private Button startButton;
+    private Button folderButton;
     private long lastSpeedDone;
     private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
@@ -64,6 +66,9 @@ public final class MainActivity extends Activity {
         buildUi();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 10);
+        }
+        if (Build.VERSION.SDK_INT <= 28 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, 11);
         }
     }
 
@@ -146,6 +151,11 @@ public final class MainActivity extends Activity {
         startButton.setBackgroundResource(R.drawable.bg_primary);
         startButton.setOnClickListener(v -> startDownload());
         card.addView(startButton, new LinearLayout.LayoutParams(-1, dp(52)));
+        folderButton = secondary("保存到：系统下载");
+        folderButton.setOnClickListener(v -> chooseFolder());
+        LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(-1, dp(44));
+        folderParams.topMargin = dp(8);
+        card.addView(folderButton, folderParams);
         root.addView(card);
         applyPalette(preferences.getBoolean("pink", false));
 
@@ -188,7 +198,7 @@ public final class MainActivity extends Activity {
         controls.addView(cancel, new LinearLayout.LayoutParams(0, dp(48), 1));
         root.addView(controls);
 
-        TextView note = text("自动使用最多 128 路连接；网络不稳定时会平稳降档。下载完成后文件保存在应用 Downloads 目录。", 12, Color.rgb(120, 132, 150));
+        TextView note = text("自动使用最多 128 路连接；网络不稳定时会平稳降档。完成后保存到系统 下载/FastDL。", 12, Color.rgb(120, 132, 150));
         note.setGravity(Gravity.CENTER);
         note.setLineSpacing(dp(3), 1f);
         note.setPadding(dp(10), dp(18), dp(10), 0);
@@ -229,7 +239,26 @@ public final class MainActivity extends Activity {
         i.putExtra(DownloadService.EXTRA_URL, url)
                 .putExtra(DownloadOptions.EXTRA_THREADS, DownloadOptions.AUTO_THREADS)
                 .putExtra(DownloadOptions.EXTRA_DUAL_NETWORK, true);
+        String tree = preferences.getString("download_tree", "");
+        if (!tree.isEmpty()) i.putExtra(DownloadService.EXTRA_TREE_URI, tree);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+    }
+
+    private void chooseFolder() {
+        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(picker, 42);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != 42 || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        try { getContentResolver().takePersistableUriPermission(uri, data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION)); }
+        catch (Exception ignored) { }
+        preferences.edit().putString("download_tree", uri.toString()).apply();
+        if (folderButton != null) folderButton.setText("保存到：已选择文件夹");
     }
 
     private void sendAction(String action) {

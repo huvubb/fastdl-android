@@ -22,6 +22,8 @@ sdk.dir=C\:\\Android\\Sdk
 
 APK 输出：`app\build\outputs\apk\debug\app-debug.apk`。GitHub Release 会附带可直接安装的 APK。
 
+完成下载后，文件默认发布到系统公共 `Download/FastDL` 目录；也可以在界面中选择其他文件夹。Android 8.0 及以上会请求系统确认创建文件桌面快捷方式，是否显示由启动器决定。
+
 项目使用标准 Android SDK Platform 35；请在 SDK Manager 安装该平台。当前 `D:\ad\platforms\android-37.0` 不是 Android Gradle Plugin 可识别的标准平台目录，不能替代它。
 
 ## 当前范围
