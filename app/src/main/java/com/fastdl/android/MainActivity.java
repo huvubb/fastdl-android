@@ -35,6 +35,11 @@ public final class MainActivity extends Activity {
     private TextView percent;
     private TextView speed;
     private ProgressBar progress;
+    private TextView promptText;
+    private TextView hintText;
+    private TextView monitorTitleText;
+    private TextView noteText;
+    private TextView debugLabelText;
     private TextView palette;
     private SharedPreferences preferences;
     private LinearLayout root;
@@ -144,11 +149,11 @@ public final class MainActivity extends Activity {
         linkCard = new LinearLayout(this);
         linkCard.setOrientation(LinearLayout.VERTICAL);
         linkCard.setPadding(dp(20), dp(20), dp(20), dp(18));
-        TextView prompt = text("下载链接", 19, Color.rgb(27, 40, 64));
-        TextView hint = text("每行一个链接 · 下载时可继续添加到队尾", 12, Color.rgb(117, 132, 154));
-        hint.setPadding(0, dp(4), 0, dp(12));
-        linkCard.addView(prompt);
-        linkCard.addView(hint);
+        promptText = text("下载链接", 19, Color.rgb(27, 40, 64));
+        hintText = text("每行一个链接 · 下载时可继续添加到队尾", 12, Color.rgb(117, 132, 154));
+        hintText.setPadding(0, dp(4), 0, dp(12));
+        linkCard.addView(promptText);
+        linkCard.addView(hintText);
         urlInput = new EditText(this);
         urlInput.setHint("粘贴一个或多个下载链接，每行一个");
         urlInput.setTextSize(15);
@@ -181,9 +186,9 @@ public final class MainActivity extends Activity {
         advancedPanel = new LinearLayout(this);
         advancedPanel.setOrientation(LinearLayout.VERTICAL);
         advancedPanel.setVisibility(View.GONE);
-        TextView debugLabel = text("下载线程（本机测速选择）", 12, Color.rgb(85, 111, 151));
-        debugLabel.setPadding(0, dp(7), 0, 0);
-        advancedPanel.addView(debugLabel);
+        debugLabelText = text("下载线程（本机测速选择）", 12, Color.rgb(85, 111, 151));
+        debugLabelText.setPadding(0, dp(7), 0, 0);
+        advancedPanel.addView(debugLabelText);
         debugThreads = new Spinner(this);
         String[] threadChoices = {"8 路", "16 路", "32 路", "64 路", "128 路"};
         ArrayAdapter<String> threadAdapter = new ArrayAdapter<>(this,
@@ -215,10 +220,10 @@ public final class MainActivity extends Activity {
         monitor.setBackgroundResource(R.drawable.bg_status);
         LinearLayout monitorHeader = new LinearLayout(this);
         monitorHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView monitorTitle = text("传输进度", 16, Color.rgb(47, 80, 128));
+        monitorTitleText = text("传输进度", 16, Color.rgb(47, 80, 128));
         percent = text("0%", 17, Color.rgb(25, 92, 192));
         percent.setGravity(Gravity.RIGHT);
-        monitorHeader.addView(monitorTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        monitorHeader.addView(monitorTitleText, new LinearLayout.LayoutParams(0, -2, 1));
         monitorHeader.addView(percent, new LinearLayout.LayoutParams(-2, -2));
         status = text("等待下载任务", 15, Color.rgb(25, 42, 70));
         status.setPadding(0, dp(7), 0, dp(3));
@@ -258,11 +263,11 @@ public final class MainActivity extends Activity {
         controls.addView(cancel, new LinearLayout.LayoutParams(0, dp(48), 1));
         root.addView(controls);
 
-        TextView note = text("文件保存至 下载/FastDL · 完成后可直接打开", 12, Color.rgb(120, 132, 150));
-        note.setGravity(Gravity.CENTER);
-        note.setLineSpacing(dp(3), 1f);
-        note.setPadding(dp(10), dp(18), dp(10), 0);
-        root.addView(note);
+        noteText = text("文件保存至 下载/FastDL · 完成后可直接打开", 12, Color.rgb(120, 132, 150));
+        noteText.setGravity(Gravity.CENTER);
+        noteText.setLineSpacing(dp(3), 1f);
+        noteText.setPadding(dp(10), dp(18), dp(10), 0);
+        root.addView(noteText);
         applyPalette(preferences.getBoolean("pink", false));
         setContentView(scroll);
     }
@@ -451,6 +456,18 @@ public final class MainActivity extends Activity {
         palette.setText(pink ? "蓝色" : "粉色");
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(start));
         int secondaryText = Color.rgb(pink ? 133 : 37, pink ? 52 : 84, pink ? 97 : 151);
+        int primaryText = Color.rgb(pink ? 86 : 20, pink ? 30 : 58, pink ? 59 : 106);
+        promptText.setTextColor(primaryText);
+        hintText.setTextColor(secondaryText);
+        status.setTextColor(primaryText);
+        speed.setTextColor(secondaryText);
+        percent.setTextColor(pink ? Color.rgb(191, 45, 105) : Color.rgb(24, 91, 190));
+        monitorTitleText.setTextColor(secondaryText);
+        noteText.setTextColor(secondaryText);
+        debugLabelText.setTextColor(secondaryText);
+        improvementPlan.setTextColor(secondaryText);
+        urlInput.setTextColor(primaryText);
+        urlInput.setHintTextColor(Color.argb(180, Color.red(secondaryText), Color.green(secondaryText), Color.blue(secondaryText)));
         for (Button button : glassButtons) {
             button.setTextColor(secondaryText);
             button.setBackground(glass(Color.argb(38,
