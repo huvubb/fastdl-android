@@ -436,7 +436,7 @@ public final class MainActivity extends Activity {
         int end = Color.rgb(pink ? 255 : 67, pink ? 157 : 207, pink ? 116 : 248);
         // Keep the canvas neutral; color belongs to the content layer and the
         // glass controls, matching the iOS Liquid Glass hierarchy.
-        root.setBackgroundResource(R.drawable.bg_app);
+        root.setBackgroundResource(pink ? R.drawable.bg_glass_pink : R.drawable.bg_glass_blue);
 
         hero.setBackgroundResource(pink ? R.drawable.bg_content_pink : R.drawable.bg_content_blue);
         // Content remains a clean content layer. Liquid Glass belongs to the

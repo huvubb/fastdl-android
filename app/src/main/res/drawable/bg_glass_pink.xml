@@ -1,7 +1,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item><shape><solid android:color="#FFF0F5"/></shape></item>
+    <item><shape><solid android:color="#F2F2F7"/></shape></item>
     <item android:gravity="top|left" android:width="540dp" android:height="540dp">
-        <shape android:shape="rectangle"><gradient android:type="radial" android:gradientRadius="400dp" android:centerX="0.2" android:centerY="0.2" android:startColor="#B7FF69AC" android:endColor="#00FF69AC"/></shape>
+        <shape android:shape="rectangle"><gradient android:type="radial" android:gradientRadius="400dp" android:centerX="0.2" android:centerY="0.2" android:startColor="#50FF69AC" android:endColor="#00FF69AC"/></shape>
     </item>
     <item android:gravity="top|right" android:width="490dp" android:height="610dp">
         <shape android:shape="rectangle"><gradient android:type="radial" android:gradientRadius="385dp" android:centerX="0.84" android:centerY="0.23" android:startColor="#A3FFB06B" android:endColor="#00FFB06B"/></shape>
