@@ -127,20 +127,25 @@ final class HttpDownloader {
         report(0, "内存载入：" + pretty(size) + "，完成后一次写入磁盘");
         HttpURLConnection c = open(null);
         ByteArrayOutputStream memory = new ByteArrayOutputStream((int) size);
-        try (BufferedInputStream in = new BufferedInputStream(c.getInputStream(), BUFFER)) {
+        File temp = new File(downloadRoot, name + ".memory.tmp");
+        try (BufferedInputStream in = new BufferedInputStream(c.getInputStream(), BUFFER);
+             BufferedOutputStream disk = new BufferedOutputStream(new FileOutputStream(temp), BUFFER)) {
             byte[] buffer = new byte[BUFFER];
             for (int n; !stop.get() && (n = in.read(buffer)) >= 0;) {
-                limiter.acquire(n); memory.write(buffer, 0, n); done.addAndGet(n); reportMaybe();
+                limiter.acquire(n); memory.write(buffer, 0, n); disk.write(buffer, 0, n); done.addAndGet(n); reportMaybe();
             }
         } finally { close(c); }
         if (discard.get()) { report(0, "下载已取消"); return; }
         if (stop.get()) { report(done.get(), "内存载入已暂停，请重新开始"); return; }
         if (memory.size() != size) throw new IOException("内存载入数据不完整");
-        File temp = new File(downloadRoot, name + ".memory.tmp");
-        try (FileOutputStream out = new FileOutputStream(temp)) { memory.writeTo(out); }
+        diskSync(temp);
         if (finalFile.exists() && !finalFile.delete()) throw new IOException("无法替换同名文件");
         if (!temp.renameTo(finalFile)) throw new IOException("无法完成文件改名");
         report(size, "内存载入完成：" + name);
+    }
+
+    private static void diskSync(File file) throws IOException {
+        try (FileOutputStream out = new FileOutputStream(file, true)) { out.getFD().sync(); }
     }
 
     private Probe probe() throws IOException {
