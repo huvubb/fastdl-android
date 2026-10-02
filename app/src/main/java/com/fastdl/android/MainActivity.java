@@ -2,6 +2,7 @@ package com.fastdl.android;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
@@ -22,9 +24,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.ArrayAdapter;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import java.util.ArrayList;
@@ -57,7 +57,10 @@ public final class MainActivity extends Activity {
     private LinearLayout advancedPanel;
     private final ArrayList<Button> glassButtons = new ArrayList<>();
     private CheckBox improvementPlan;
-    private Spinner debugThreads;
+    private Button threadPicker;
+    private int selectedThreads = 128;
+    private Uri feedbackImageUri;
+    private Uri feedbackVideoUri;
     private long lastSpeedDone;
     private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
@@ -193,13 +196,9 @@ public final class MainActivity extends Activity {
         debugLabelText = text("下载线程（本机测速选择）", 12, Color.rgb(85, 111, 151));
         debugLabelText.setPadding(0, dp(7), 0, 0);
         advancedPanel.addView(debugLabelText);
-        debugThreads = new Spinner(this);
-        String[] threadChoices = {"8 路", "16 路", "32 路", "64 路", "128 路"};
-        ArrayAdapter<String> threadAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, threadChoices);
-        debugThreads.setAdapter(threadAdapter);
-        debugThreads.setSelection(4);
-        advancedPanel.addView(debugThreads, new LinearLayout.LayoutParams(-1, dp(40)));
+        threadPicker = secondary("128 路连接");
+        threadPicker.setOnClickListener(v -> showThreadPicker());
+        advancedPanel.addView(threadPicker, new LinearLayout.LayoutParams(-1, dp(42)));
         improvementPlan = new CheckBox(this);
         improvementPlan.setText("加入用户改进计划（可随时关闭）");
         improvementPlan.setTextSize(12);
@@ -213,7 +212,7 @@ public final class MainActivity extends Activity {
         advanced.setOnClickListener(v -> {
             boolean show = advancedPanel.getVisibility() != View.VISIBLE;
             advancedPanel.setVisibility(show ? View.VISIBLE : View.GONE);
-            advanced.setText(show ? "收起高级设置" : "高级设置 · " + debugThreads.getSelectedItem() + "连接");
+            advanced.setText(show ? "收起高级设置" : "高级设置 · " + selectedThreads + " 路连接");
         });
         root.addView(linkCard);
 
@@ -257,14 +256,7 @@ public final class MainActivity extends Activity {
 
         space(root, 10);
         Button feedback = secondary("反馈与建议");
-        feedback.setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/huvubb/fastdl-android/issues/new")));
-            } catch (Exception error) {
-                status.setText("无法打开反馈页面");
-            }
-        });
+        feedback.setOnClickListener(v -> showFeedbackDialog());
         root.addView(feedback, new LinearLayout.LayoutParams(-1, dp(44)));
 
         space(root, 10);
@@ -324,9 +316,7 @@ public final class MainActivity extends Activity {
             return;
         }
         Intent i = new Intent(this, DownloadService.class).setAction(DownloadService.ACTION_START);
-        int threads = DownloadOptions.AUTO_THREADS;
-        try { threads = Integer.parseInt(String.valueOf(debugThreads.getSelectedItem()).replaceAll("\\D+", "")); }
-        catch (Exception ignored) { }
+        int threads = selectedThreads;
         i.putExtra(DownloadService.EXTRA_URL, urls.get(0))
                 .putStringArrayListExtra(DownloadService.EXTRA_URLS, urls)
                 .putExtra(DownloadOptions.EXTRA_THREADS, threads)
@@ -347,8 +337,38 @@ public final class MainActivity extends Activity {
         startActivityForResult(picker, 42);
     }
 
+    private void showThreadPicker() {
+        final String[] choices = {"8 路", "16 路", "32 路", "64 路", "128 路"};
+        int checked = 4;
+        for (int i = 0; i < choices.length; i++) if (Integer.parseInt(choices[i].replaceAll("\\D+", "")) == selectedThreads) checked = i;
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("选择下载线程")
+                .setSingleChoiceItems(choices, checked, (d, which) -> {
+                    selectedThreads = Integer.parseInt(choices[which].replaceAll("\\D+", ""));
+                    threadPicker.setText(selectedThreads + " 路连接"); d.dismiss();
+                }).setNegativeButton("取消", null).create();
+        dialog.setOnShowListener(d -> { if (dialog.getWindow() != null) dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); });
+        dialog.show();
+    }
+
+    private void showFeedbackDialog() {
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(dp(20), dp(6), dp(20), 0);
+        EditText message = new EditText(this); message.setHint("写下问题、建议或下载结果（必填）"); message.setMinLines(4); message.setGravity(Gravity.TOP); message.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE); box.addView(message, new LinearLayout.LayoutParams(-1, dp(120)));
+        TextView selected = text("未选择图片或视频", 12, Color.rgb(100, 115, 140)); selected.setPadding(0, dp(8), 0, dp(4)); box.addView(selected);
+        LinearLayout media = new LinearLayout(this); media.setGravity(Gravity.CENTER_VERTICAL);
+        Button image = secondary("添加图片"); Button video = secondary("添加视频"); media.addView(image, new LinearLayout.LayoutParams(0, dp(42), 1)); LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(0, dp(42), 1); vp.leftMargin = dp(8); media.addView(video, vp); box.addView(media);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("反馈与建议").setView(box).setNegativeButton("取消", null).setPositiveButton("提交", null).create();
+        image.setOnClickListener(v -> { Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); startActivityForResult(i, 73); });
+        video.setOnClickListener(v -> { Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("video/*").addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); startActivityForResult(i, 74); });
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(x -> { String body = message.getText().toString().trim(); if (body.isEmpty() && feedbackImageUri == null && feedbackVideoUri == null) { message.setError("请填写内容或添加媒体"); return; } dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false); FeedbackReporter.send(this, body, feedbackImageUri, feedbackVideoUri, (ok, msg) -> runOnUiThread(() -> { status.setText(msg); if (ok) dialog.dismiss(); else dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true); })); }));
+        dialog.show();
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if ((requestCode == 73 || requestCode == 74) && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            if (requestCode == 73) feedbackImageUri = data.getData(); else feedbackVideoUri = data.getData();
+            return;
+        }
         if (requestCode != 42 || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         try { getContentResolver().takePersistableUriPermission(uri, data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION)); }

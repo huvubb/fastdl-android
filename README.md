@@ -1,43 +1,40 @@
 # FastDL Android
 
-> **许可证：PolyForm Noncommercial 1.0.0。** 源码公开，允许个人、学习、研究及其他非商业用途；任何商业使用均不被许可。详见 [LICENSE](LICENSE)。
+轻量、可靠的 Android 直链下载器。粘贴链接即可下载，支持 HTTP/HTTPS、GitHub Release 资源、断点续传、暂停/取消和前台通知进度。
 
-原生 Android 下载器，移植 `D:\fastdl` 的直链下载策略：HTTP/HTTPS Range 分片、断点续传、暂停、取消、通知栏前台服务进度。
+## 功能
 
-界面只需要粘贴下载链接。程序会自动选择并发、分片、内存缓冲与可用网络，不提供会拖慢启动或造成误配的手动选项。
+- 自动解析常见 GitHub 下载页并使用最终资源直链
+- 8 / 16 / 32 / 64 / 128 路 Range 分片，可在高级设置中选择
+- 网络不稳定时自动降档，服务器不支持 Range 时自动单流回退
+- 显示百分比、实时速度和下载结果；支持队列中继续粘贴链接
+- 默认保存到 `Download/FastDL`，也可选择其他文件夹，完成后直接打开
+- 支持蓝色、粉色两套渐变液态玻璃主题
+- 内置反馈入口，可提交文字、图片和视频到站点
+- FTP、ed2k 不在 Android 版本范围内
 
 ## 构建
 
-在已配置 Android SDK 的终端中执行：
+在已安装 Android SDK 的 Windows 终端执行：
 
 ```powershell
-D:\gradle\gradle-9.7.1\bin\gradle.bat :app:assembleDebug
+gradlew.bat :app:assembleDebug
 ```
 
-若 SDK 未由环境变量发现，在项目根目录创建 `local.properties`：
+生成文件：`app\build\outputs\apk\debug\app-debug.apk`
 
-```properties
-sdk.dir=C\:\\Android\\Sdk
+发布版使用：
+
+```powershell
+gradlew.bat :app:assembleRelease
 ```
 
-APK 输出：`app\build\outputs\apk\debug\app-debug.apk`。GitHub Release 会附带可直接安装的 APK。
+项目使用 Android SDK Platform 35。首次构建请在 Android Studio 的 SDK Manager 安装 Android 35、Build Tools 和命令行工具。
 
-完成下载后，文件默认发布到系统公共 `Download/FastDL` 目录；也可以在界面中选择其他文件夹。Android 8.0 及以上会请求系统确认创建文件桌面快捷方式，是否显示由启动器决定。
+## 隐私
 
-项目使用标准 Android SDK Platform 35；请在 SDK Manager 安装该平台。当前 `D:\ad\platforms\android-37.0` 不是 Android Gradle Plugin 可识别的标准平台目录，不能替代它。
+下载内容只写入用户选择的本地目录。用户主动提交反馈时，应用只上传反馈文字、所选图片/视频；不会上传下载文件。反馈接口位于项目维护者自己的站点。
 
+## 许可证
 
-## 隐私承诺
-本工具默认关闭所有下载反馈。即使你主动开启反馈，也仅上传下载速度和文件大小两项匿名性能指标。
-绝不上传文件名、下载链接、IP 地址、用户标识或任何可关联到具体下载内容的信息。
-你下载了什么，只有你自己知道。
-
-
-## 当前范围
-
-- 支持 HTTP/HTTPS 直链、多线程 Range 下载与服务器不支持 Range 时的单流回退；自动启用最高 128 路并发，并在网络异常时自动降至 64、32、16 路。
-- 自动选择内存缓冲或磁盘分片：小文件避免多余的分片写入，大文件使用高并发 Range 分片。
-- 任务数据和临时分片保存在应用专属 Downloads 目录；已完成文件也在此目录。
-- Android 需要以前台通知保持大文件下载；暂停或关闭通知中的取消按钮会保留/删除临时文件。
-- Wi-Fi 与移动数据同时可用时自动轮换连接；网络策略和设备限制会自动回退。
-- FTP、ed2k、Windows 网卡绑定、连接清理和 aria2 模式不适用于此 Android 版本，未移植。
+PolyForm Noncommercial 1.0.0：允许个人、学习、研究和其他非商业使用，禁止商业使用。详见 [LICENSE](LICENSE)。
