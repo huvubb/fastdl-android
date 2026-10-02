@@ -36,6 +36,7 @@ public final class MainActivity extends Activity {
     private TextView percent;
     private TextView speed;
     private ProgressBar progress;
+    private ProgressBar loading;
     private TextView promptText;
     private TextView hintText;
     private TextView monitorTitleText;
@@ -68,7 +69,9 @@ public final class MainActivity extends Activity {
             long done = intent.getLongExtra(DownloadService.EXTRA_DONE, 0);
             long total = intent.getLongExtra(DownloadService.EXTRA_TOTAL, 0);
             status.setText(intent.getStringExtra(DownloadService.EXTRA_STATUS));
-            progress.setIndeterminate(total <= 0);
+            boolean unknown = total <= 0;
+            progress.setVisibility(unknown ? View.GONE : View.VISIBLE);
+            loading.setVisibility(unknown ? View.VISIBLE : View.GONE);
             long now = System.currentTimeMillis();
             long elapsed = lastSpeedAt == 0 ? 0 : Math.max(1, now - lastSpeedAt);
             long bytesPerSecond = elapsed == 0 ? 0 : Math.max(0, (done - lastSpeedDone) * 1000 / elapsed);
@@ -224,7 +227,7 @@ public final class MainActivity extends Activity {
         space(root, 12);
         monitor = new LinearLayout(this);
         monitor.setOrientation(LinearLayout.VERTICAL);
-        monitor.setPadding(dp(20), dp(17), dp(20), dp(17));
+        monitor.setPadding(dp(20), dp(22), dp(20), dp(22));
         monitor.setBackgroundColor(Color.TRANSPARENT);
         monitor.setBackgroundResource(R.drawable.bg_status);
         LinearLayout monitorHeader = new LinearLayout(this);
@@ -242,10 +245,17 @@ public final class MainActivity extends Activity {
         progress.setMax(100);
         progress.setIndeterminate(false);
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34, 110, 224)));
+        loading = new ProgressBar(this);
+        loading.setIndeterminate(true);
+        loading.setVisibility(View.GONE);
         monitor.addView(monitorHeader);
         monitor.addView(status);
         monitor.addView(speed);
         monitor.addView(progress, new LinearLayout.LayoutParams(-1, dp(8)));
+        LinearLayout loadingRow = new LinearLayout(this);
+        loadingRow.setGravity(Gravity.CENTER);
+        loadingRow.addView(loading, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        monitor.addView(loadingRow, new LinearLayout.LayoutParams(-1, dp(34)));
         root.addView(monitor);
 
         space(root, 14);
