@@ -80,7 +80,7 @@ public final class MainActivity extends Activity {
             speed.setText("当前速度  " + pretty(bytesPerSecond) + "/s");
             if (total > 0) {
                 int value = (int) Math.min(100, done * 100 / total);
-                progress.setProgress(value);
+                progress.setProgress(value, true);
                 percent.setText(value + "%");
             } else {
                 percent.setText("准备中");
@@ -244,7 +244,7 @@ public final class MainActivity extends Activity {
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
         progress.setIndeterminate(false);
-        progress.setProgressTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34, 110, 224)));
+        progress.setProgressDrawable(getDrawable(R.drawable.progress_fastdl));
         loading = new ProgressBar(this);
         loading.setIndeterminate(true);
         loading.setVisibility(View.GONE);
