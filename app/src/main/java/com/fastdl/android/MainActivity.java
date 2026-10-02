@@ -185,6 +185,11 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(-1, dp(44));
         folderParams.topMargin = dp(8);
         linkCard.addView(folderButton, folderParams);
+        Button feedbackTop = secondary("反馈与建议");
+        feedbackTop.setOnClickListener(v -> showFeedbackDialog());
+        LinearLayout.LayoutParams feedbackTopParams = new LinearLayout.LayoutParams(-1, dp(42));
+        feedbackTopParams.topMargin = dp(8);
+        linkCard.addView(feedbackTop, feedbackTopParams);
         Button advanced = secondary("高级设置 · 128 路连接");
         advanced.setTextSize(13);
         LinearLayout.LayoutParams advancedParams = new LinearLayout.LayoutParams(-1, dp(40));
@@ -255,10 +260,6 @@ public final class MainActivity extends Activity {
         root.addView(updateButton, new LinearLayout.LayoutParams(-1, dp(44)));
 
         space(root, 10);
-        Button feedback = secondary("反馈与建议");
-        feedback.setOnClickListener(v -> showFeedbackDialog());
-        root.addView(feedback, new LinearLayout.LayoutParams(-1, dp(44)));
-
         space(root, 10);
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
@@ -346,7 +347,6 @@ public final class MainActivity extends Activity {
                     selectedThreads = Integer.parseInt(choices[which].replaceAll("\\D+", ""));
                     threadPicker.setText(selectedThreads + " 路连接"); d.dismiss();
                 }).setNegativeButton("取消", null).create();
-        dialog.setOnShowListener(d -> { if (dialog.getWindow() != null) dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); });
         dialog.show();
     }
 
