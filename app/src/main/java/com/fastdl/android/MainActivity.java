@@ -21,9 +21,12 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.ArrayAdapter;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import java.util.ArrayList;
 
 /** A deliberately focused download screen: people paste a URL and the engine chooses the rest. */
 public final class MainActivity extends Activity {
@@ -38,7 +41,9 @@ public final class MainActivity extends Activity {
     private ImageView mark;
     private Button startButton;
     private Button folderButton;
+    private Button openLatestButton;
     private CheckBox improvementPlan;
+    private Spinner debugThreads;
     private long lastSpeedDone;
     private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
@@ -111,7 +116,7 @@ public final class MainActivity extends Activity {
         heroText.setPadding(dp(14), 0, 0, 0);
         TextView title = text("FastDL", 27, Color.WHITE);
         title.setLetterSpacing(0.02f);
-        TextView subtitle = text("极速直链下载", 14, Color.rgb(213, 231, 255));
+        TextView subtitle = text("下载队列 · 稳定直链", 14, Color.rgb(213, 231, 255));
         heroText.addView(title);
         heroText.addView(subtitle);
         hero.addView(heroText, new LinearLayout.LayoutParams(0, -2, 1));
@@ -132,23 +137,25 @@ public final class MainActivity extends Activity {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
         card.setBackgroundResource(R.drawable.bg_card);
-        TextView prompt = text("粘贴下载链接", 17, Color.rgb(25, 42, 70));
-        TextView hint = text("支持 HTTP、HTTPS 链接，连接与分片策略自动选择。", 13, Color.rgb(104, 119, 142));
+        TextView prompt = text("新建下载队列", 18, Color.rgb(25, 42, 70));
+        TextView hint = text("每行一个 HTTP/HTTPS 链接。下载中也能继续添加，新链接会排在队尾。", 13, Color.rgb(104, 119, 142));
         hint.setPadding(0, dp(4), 0, dp(14));
         card.addView(prompt);
         card.addView(hint);
         urlInput = new EditText(this);
-        urlInput.setHint("https://example.com/file.zip");
+        urlInput.setHint("粘贴一个或多个下载链接，每行一个");
         urlInput.setTextSize(15);
-        urlInput.setSingleLine(true);
+        urlInput.setSingleLine(false);
+        urlInput.setMinLines(2);
+        urlInput.setMaxLines(4);
         urlInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         urlInput.setBackgroundResource(R.drawable.bg_url);
         urlInput.setPadding(dp(14), 0, dp(14), 0);
-        card.addView(urlInput, new LinearLayout.LayoutParams(-1, dp(56)));
+        card.addView(urlInput, new LinearLayout.LayoutParams(-1, dp(82)));
         space(card, 14);
         startButton = new Button(this);
         startButton.setAllCaps(false);
-        startButton.setText("开始下载");
+        startButton.setText("开始下载 / 加入队列");
         startButton.setTextSize(16);
         startButton.setTextColor(Color.WHITE);
         startButton.setBackgroundResource(R.drawable.bg_primary);
@@ -159,6 +166,18 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(-1, dp(44));
         folderParams.topMargin = dp(8);
         card.addView(folderButton, folderParams);
+        // Local benchmark control. This stays in the debug APK only and lets
+        // the device measure a real download without exposing the service.
+        TextView debugLabel = text("下载线程（本机测速选择）", 12, Color.rgb(85, 111, 151));
+        debugLabel.setPadding(0, dp(6), 0, 0);
+        card.addView(debugLabel);
+        debugThreads = new Spinner(this);
+        String[] threadChoices = {"8 路", "16 路", "32 路", "64 路", "128 路"};
+        ArrayAdapter<String> threadAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, threadChoices);
+        debugThreads.setAdapter(threadAdapter);
+        debugThreads.setSelection(4);
+        card.addView(debugThreads, new LinearLayout.LayoutParams(-1, dp(42)));
         improvementPlan = new CheckBox(this);
         improvementPlan.setText("加入用户改进计划（可随时关闭）");
         improvementPlan.setTextSize(12);
@@ -178,7 +197,7 @@ public final class MainActivity extends Activity {
         monitor.setBackgroundResource(R.drawable.bg_status);
         LinearLayout monitorHeader = new LinearLayout(this);
         monitorHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView monitorTitle = text("下载状态 · 自动加速", 14, Color.rgb(47, 80, 128));
+        TextView monitorTitle = text("传输进度", 15, Color.rgb(47, 80, 128));
         percent = text("0%", 17, Color.rgb(25, 92, 192));
         percent.setGravity(Gravity.RIGHT);
         monitorHeader.addView(monitorTitle, new LinearLayout.LayoutParams(0, -2, 1));
@@ -198,11 +217,17 @@ public final class MainActivity extends Activity {
         root.addView(monitor);
 
         space(root, 14);
+        openLatestButton = secondary("打开最近下载");
+        openLatestButton.setTextSize(15);
+        openLatestButton.setOnClickListener(v -> openLatestFile());
+        root.addView(openLatestButton, new LinearLayout.LayoutParams(-1, dp(48)));
+
+        space(root, 10);
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
-        Button pause = secondary("暂停");
+        Button pause = secondary("暂停并清空队列");
         pause.setOnClickListener(v -> sendAction(DownloadService.ACTION_PAUSE));
-        Button cancel = secondary("取消任务");
+        Button cancel = secondary("取消全部任务");
         cancel.setOnClickListener(v -> sendAction(DownloadService.ACTION_CANCEL));
         LinearLayout.LayoutParams first = new LinearLayout.LayoutParams(0, dp(48), 1);
         first.setMargins(0, 0, dp(8), 0);
@@ -210,7 +235,7 @@ public final class MainActivity extends Activity {
         controls.addView(cancel, new LinearLayout.LayoutParams(0, dp(48), 1));
         root.addView(controls);
 
-        TextView note = text("自动使用最多 128 路连接；网络不稳定时会平稳降档。完成后保存到系统 下载/FastDL。", 12, Color.rgb(120, 132, 150));
+        TextView note = text("下载完成后保存在系统 下载/FastDL。可直接点上方按钮打开最近一个文件。", 12, Color.rgb(120, 132, 150));
         note.setGravity(Gravity.CENTER);
         note.setLineSpacing(dp(3), 1f);
         note.setPadding(dp(10), dp(18), dp(10), 0);
@@ -242,20 +267,30 @@ public final class MainActivity extends Activity {
     }
 
     private void startDownload() {
-        String url = urlInput.getText().toString().trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        ArrayList<String> urls = new ArrayList<>();
+        for (String item : urlInput.getText().toString().split("\\r?\\n")) {
+            String url = item.trim();
+            if (url.startsWith("http://") || url.startsWith("https://")) urls.add(url);
+        }
+        if (urls.isEmpty()) {
             status.setText("请输入有效的下载链接");
             return;
         }
         Intent i = new Intent(this, DownloadService.class).setAction(DownloadService.ACTION_START);
-        i.putExtra(DownloadService.EXTRA_URL, url)
-                .putExtra(DownloadOptions.EXTRA_THREADS, DownloadOptions.AUTO_THREADS)
+        int threads = DownloadOptions.AUTO_THREADS;
+        try { threads = Integer.parseInt(String.valueOf(debugThreads.getSelectedItem()).replaceAll("\\D+", "")); }
+        catch (Exception ignored) { }
+        i.putExtra(DownloadService.EXTRA_URL, urls.get(0))
+                .putStringArrayListExtra(DownloadService.EXTRA_URLS, urls)
+                .putExtra(DownloadOptions.EXTRA_THREADS, threads)
                 .putExtra(DownloadOptions.EXTRA_DUAL_NETWORK, true)
                 .putExtra(DownloadService.EXTRA_IMPROVEMENT_PLAN,
                         preferences.getBoolean("improvement_plan", false));
         String tree = preferences.getString("download_tree", "");
         if (!tree.isEmpty()) i.putExtra(DownloadService.EXTRA_TREE_URI, tree);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+        urlInput.setText("");
+        status.setText("已加入 " + urls.size() + " 个任务；可继续粘贴链接加入队列");
     }
 
     private void chooseFolder() {
@@ -277,6 +312,25 @@ public final class MainActivity extends Activity {
 
     private void sendAction(String action) {
         startService(new Intent(this, DownloadService.class).setAction(action));
+    }
+
+    private void openLatestFile() {
+        String raw = preferences.getString("last_file_uri", "");
+        String name = preferences.getString("last_file_name", "");
+        if (raw.isEmpty()) {
+            status.setText("还没有已完成的下载文件");
+            return;
+        }
+        try {
+            Uri uri = Uri.parse(raw);
+            String type = getContentResolver().getType(uri);
+            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri,
+                    type == null ? "application/octet-stream" : type)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(open);
+        } catch (Exception error) {
+            status.setText("无法打开 " + name + "；文件可能已被移动或删除");
+        }
     }
 
     private int dp(int value) {

@@ -22,6 +22,9 @@ import java.io.FileInputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Collections;
 
 /** Foreground owner for a download. Android may otherwise stop long network work. */
 public final class DownloadService extends Service {
@@ -30,6 +33,7 @@ public final class DownloadService extends Service {
     public static final String ACTION_CANCEL = "com.fastdl.android.CANCEL";
     public static final String ACTION_UPDATE = "com.fastdl.android.UPDATE";
     public static final String EXTRA_URL = "url";
+    public static final String EXTRA_URLS = "urls";
     public static final String EXTRA_DONE = "done";
     public static final String EXTRA_TOTAL = "total";
     public static final String EXTRA_STATUS = "status";
@@ -39,7 +43,10 @@ public final class DownloadService extends Service {
     private static final String CHANNEL = "fastdl_downloads";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ArrayDeque<QueuedDownload> queue = new ArrayDeque<>();
     private volatile HttpDownloader active;
+    private volatile boolean batchStop;
+    private volatile boolean running;
     private PowerManager.WakeLock downloadWakeLock;
     private long debugLastDone;
     private long debugLastAt;
@@ -55,43 +62,75 @@ public final class DownloadService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_PAUSE.equals(action)) {
+            batchStop = true;
+            synchronized (queue) { queue.clear(); }
             if (active != null) active.pause();
             return START_NOT_STICKY;
         }
         if (ACTION_CANCEL.equals(action)) {
+            batchStop = true;
+            synchronized (queue) { queue.clear(); }
             if (active != null) active.cancel();
             return START_NOT_STICKY;
         }
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
-        String url = intent.getStringExtra(EXTRA_URL);
-        if (url == null || active != null) return START_NOT_STICKY;
+        ArrayList<String> urls = intent.getStringArrayListExtra(EXTRA_URLS);
+        if (urls == null || urls.isEmpty()) {
+            String url = intent.getStringExtra(EXTRA_URL);
+            urls = url == null ? new ArrayList<>() : new ArrayList<>(Collections.singletonList(url));
+        }
         boolean improvementPlan = intent.getBooleanExtra(EXTRA_IMPROVEMENT_PLAN, false);
-        debugLastDone = 0;
-        debugLastAt = System.currentTimeMillis();
-        debugSpeed = 0;
-        debugPeakSpeed = 0;
-        debugResult = "正在准备下载";
+        if (urls.isEmpty()) return START_NOT_STICKY;
+        DownloadOptions options = DownloadOptions.from(intent);
+        String treeUri = intent.getStringExtra(EXTRA_TREE_URI);
+        synchronized (queue) {
+            for (String url : urls) queue.addLast(new QueuedDownload(url, options, treeUri, improvementPlan));
+        }
+        if (running) {
+            report(0, 0, "已加入队列，等待当前下载完成");
+            return START_NOT_STICKY;
+        }
+        batchStop = false;
+        running = true;
         startForeground(NOTIFICATION_ID, notification("正在准备下载", 0, 0));
         acquireDownloadWakeLock();
         File base = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS);
-        DownloadOptions options = DownloadOptions.from(intent);
-        active = new HttpDownloader(base, url, options, new NetworkRouter(this, options.dualNetwork), this::report);
-        String treeUri = intent.getStringExtra(EXTRA_TREE_URI);
-        long startedAt = System.currentTimeMillis();
         worker.execute(() -> {
             try {
-                active.run();
-                File completed = newestCompleted(base, startedAt);
-                if (completed != null) {
-                    if (treeUri == null || treeUri.isEmpty() || !publishToTree(completed, Uri.parse(treeUri))) {
-                        publishToDownloads(completed);
+                int index = 0;
+                while (!batchStop) {
+                    QueuedDownload item;
+                    int waiting;
+                    synchronized (queue) {
+                        item = queue.pollFirst();
+                        waiting = queue.size();
                     }
+                    if (item == null) break;
+                    index++;
+                    String url = item.url;
+                    debugLastDone = 0;
+                    debugLastAt = System.currentTimeMillis();
+                    debugSpeed = 0;
+                    debugPeakSpeed = 0;
+                    debugResult = "队列任务 " + index + "：正在准备下载（后方 " + waiting + " 个）";
+                    report(0, 0, debugResult);
+                    long startedAt = System.currentTimeMillis();
+                    active = new HttpDownloader(base, url, item.options, new NetworkRouter(this, item.options.dualNetwork), this::report);
+                    active.run();
+                    File completed = newestCompleted(base, startedAt);
+                    if (!batchStop && completed != null) {
+                        // Explicit "open latest" avoids interrupting a batch with the app chooser.
+                        if (item.treeUri == null || item.treeUri.isEmpty() || !publishToTree(completed, Uri.parse(item.treeUri))) {
+                            publishToDownloads(completed);
+                        }
+                    }
+                    if (item.improvementPlan) DebugReporter.send(url,
+                            debugPeakSpeed > 0 ? debugPeakSpeed : debugSpeed, debugResult);
                 }
             } finally {
-                if (improvementPlan) DebugReporter.send(url,
-                        debugPeakSpeed > 0 ? debugPeakSpeed : debugSpeed, debugResult);
                 releaseDownloadWakeLock();
                 active = null;
+                running = false;
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf(startId);
             }
@@ -142,8 +181,7 @@ public final class DownloadService extends Service {
             ready.put(MediaStore.Downloads.IS_PENDING, 0);
             getContentResolver().update(uri, ready, null, null);
             report(source.length(), source.length(), "下载完成，已保存到：下载/FastDL/" + source.getName());
-            createShortcut(source.getName(), uri);
-            openFile(uri, source.getName());
+            rememberLastFile(uri, source.getName());
             return true;
         } catch (Exception error) {
             getContentResolver().delete(uri, null, null);
@@ -164,38 +202,17 @@ public final class DownloadService extends Service {
                 for (int n; (n = in.read(buffer)) >= 0;) out.write(buffer, 0, n);
             }
             report(source.length(), source.length(), "下载完成，已保存到：选择的文件夹/" + source.getName());
-            createShortcut(source.getName(), uri);
-            openFile(uri, source.getName());
+            rememberLastFile(uri, source.getName());
             return true;
         } catch (Exception error) {
             return false;
         }
     }
 
-    private void createShortcut(String name, Uri fileUri) {
-        if (Build.VERSION.SDK_INT < 26 || fileUri == null) return;
-        try {
-            android.content.pm.ShortcutManager manager = getSystemService(android.content.pm.ShortcutManager.class);
-            if (manager == null || !manager.isRequestPinShortcutSupported()) return;
-            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(fileUri, mime(name))
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            android.content.pm.ShortcutInfo shortcut = new android.content.pm.ShortcutInfo.Builder(this, "fastdl-" + Math.abs(name.hashCode()))
-                    .setShortLabel(name.length() > 20 ? name.substring(0, 20) : name)
-                    .setLongLabel("打开 " + name)
-                    .setIcon(Icon.createWithResource(this, R.drawable.ic_fastdl))
-                    .setIntent(open).build();
-            manager.requestPinShortcut(shortcut, null);
-        } catch (Exception ignored) { }
-    }
-
-    private void openFile(Uri uri, String name) {
-        try {
-            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime(name))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(open);
-        } catch (Exception ignored) {
-            // The notification remains available so the user can open it manually.
-        }
+    private void rememberLastFile(Uri uri, String name) {
+        getSharedPreferences("fastdl-ui", MODE_PRIVATE).edit()
+                .putString("last_file_uri", uri.toString())
+                .putString("last_file_name", name).apply();
     }
 
     private static String mime(String name) {
@@ -238,6 +255,20 @@ public final class DownloadService extends Service {
     private void createChannel() {
         NotificationChannel channel = new NotificationChannel(CHANNEL, "下载任务", NotificationManager.IMPORTANCE_LOW);
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
+    }
+
+    private static final class QueuedDownload {
+        final String url;
+        final DownloadOptions options;
+        final String treeUri;
+        final boolean improvementPlan;
+
+        QueuedDownload(String url, DownloadOptions options, String treeUri, boolean improvementPlan) {
+            this.url = url;
+            this.options = options;
+            this.treeUri = treeUri;
+            this.improvementPlan = improvementPlan;
+        }
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
