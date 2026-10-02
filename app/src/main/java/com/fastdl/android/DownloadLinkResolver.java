@@ -22,6 +22,11 @@ final class DownloadLinkResolver {
         if (!"github.com".equalsIgnoreCase(uri.getHost())) return value;
         String[] p = uri.getPath().split("/");
         if (p.length < 5 || !"releases".equals(p[3])) return value;
+        // A release asset URL already names the exact file requested by the
+        // user.  In particular, /releases/latest/download/<asset> must not be
+        // sent through the API resolver: doing so loses <asset> and can select
+        // the first unrelated archive in the release instead.
+        if (p.length >= 7 && "latest".equals(p[4]) && "download".equals(p[5])) return value;
         String api;
         if ("tag".equals(p[4]) && p.length >= 6) {
             api = "https://api.github.com/repos/" + p[1] + "/" + p[2] + "/releases/tags/" + p[5];

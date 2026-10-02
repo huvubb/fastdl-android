@@ -29,6 +29,15 @@ import java.util.Set;
  * process death or a user pause resumes safely without a database dependency.
  */
 final class HttpDownloader {
+    static {
+        // Some mobile carriers expose IPv6 first even when their route to a
+        // foreign CDN is black-holed. Prefer IPv4 so a dead AAAA route cannot
+        // hold the probe at "connecting" while IPv4 is healthy.
+        try {
+            System.setProperty("java.net.preferIPv4Stack", "true");
+            System.setProperty("java.net.preferIPv6Addresses", "false");
+        } catch (SecurityException ignored) { }
+    }
     interface Listener { void update(long done, long total, String status); }
     // Large enough to keep high-bandwidth connections fed, while 128 active workers
     // remain within a modest memory envelope on phones.
@@ -287,7 +296,7 @@ final class HttpDownloader {
             Proxy.Type type = p.getScheme() != null && p.getScheme().toLowerCase(java.util.Locale.US).startsWith("socks") ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
             c = (HttpURLConnection) target.openConnection(new Proxy(type, new InetSocketAddress(host, port)));
         }
-        c.setConnectTimeout(15_000);
+        c.setConnectTimeout(8_000);
         c.setReadTimeout(120_000);
         c.setInstanceFollowRedirects(true);
         c.setUseCaches(false);

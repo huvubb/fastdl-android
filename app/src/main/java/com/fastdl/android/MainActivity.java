@@ -15,6 +15,7 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -34,8 +35,10 @@ public final class MainActivity extends Activity {
     private TextView palette;
     private SharedPreferences preferences;
     private LinearLayout hero;
+    private ImageView mark;
     private Button startButton;
     private Button folderButton;
+    private CheckBox improvementPlan;
     private long lastSpeedDone;
     private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
@@ -99,7 +102,7 @@ public final class MainActivity extends Activity {
         hero.setGravity(Gravity.CENTER_VERTICAL);
         hero.setPadding(dp(22), dp(22), dp(22), dp(22));
         hero.setBackgroundResource(R.drawable.bg_hero);
-        ImageView mark = new ImageView(this);
+        mark = new ImageView(this);
         mark.setImageResource(R.drawable.ic_fastdl);
         mark.setPadding(dp(8), dp(8), dp(8), dp(8));
         hero.addView(mark, new LinearLayout.LayoutParams(dp(54), dp(54)));
@@ -130,7 +133,7 @@ public final class MainActivity extends Activity {
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
         card.setBackgroundResource(R.drawable.bg_card);
         TextView prompt = text("粘贴下载链接", 17, Color.rgb(25, 42, 70));
-        TextView hint = text("支持 HTTP、HTTPS 和 GitHub 文件链接，连接与分片策略自动选择。", 13, Color.rgb(104, 119, 142));
+        TextView hint = text("支持 HTTP、HTTPS 链接，连接与分片策略自动选择。", 13, Color.rgb(104, 119, 142));
         hint.setPadding(0, dp(4), 0, dp(14));
         card.addView(prompt);
         card.addView(hint);
@@ -156,6 +159,15 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(-1, dp(44));
         folderParams.topMargin = dp(8);
         card.addView(folderButton, folderParams);
+        improvementPlan = new CheckBox(this);
+        improvementPlan.setText("加入用户改进计划（可随时关闭）");
+        improvementPlan.setTextSize(12);
+        improvementPlan.setTextColor(Color.rgb(85, 111, 151));
+        improvementPlan.setChecked(preferences.getBoolean("improvement_plan", false));
+        improvementPlan.setPadding(0, dp(6), 0, 0);
+        improvementPlan.setOnCheckedChangeListener((button, checked) ->
+                preferences.edit().putBoolean("improvement_plan", checked).apply());
+        card.addView(improvementPlan, new LinearLayout.LayoutParams(-1, dp(38)));
         root.addView(card);
         applyPalette(preferences.getBoolean("pink", false));
 
@@ -238,7 +250,9 @@ public final class MainActivity extends Activity {
         Intent i = new Intent(this, DownloadService.class).setAction(DownloadService.ACTION_START);
         i.putExtra(DownloadService.EXTRA_URL, url)
                 .putExtra(DownloadOptions.EXTRA_THREADS, DownloadOptions.AUTO_THREADS)
-                .putExtra(DownloadOptions.EXTRA_DUAL_NETWORK, true);
+                .putExtra(DownloadOptions.EXTRA_DUAL_NETWORK, true)
+                .putExtra(DownloadService.EXTRA_IMPROVEMENT_PLAN,
+                        preferences.getBoolean("improvement_plan", false));
         String tree = preferences.getString("download_tree", "");
         if (!tree.isEmpty()) i.putExtra(DownloadService.EXTRA_TREE_URI, tree);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
@@ -278,6 +292,9 @@ public final class MainActivity extends Activity {
         GradientDrawable actionGradient = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{start, end});
         actionGradient.setCornerRadius(dp(16));
         startButton.setBackground(actionGradient);
+        if (mark != null) mark.setImageResource(pink ? R.drawable.ic_fastdl_pink : R.drawable.ic_fastdl);
+        if (improvementPlan != null) improvementPlan.setButtonTintList(
+                android.content.res.ColorStateList.valueOf(start));
     }
 
     private static String pretty(long bytes) {

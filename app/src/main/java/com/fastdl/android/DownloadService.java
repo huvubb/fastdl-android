@@ -34,12 +34,18 @@ public final class DownloadService extends Service {
     public static final String EXTRA_TOTAL = "total";
     public static final String EXTRA_STATUS = "status";
     public static final String EXTRA_TREE_URI = "tree_uri";
+    public static final String EXTRA_IMPROVEMENT_PLAN = "improvement_plan";
     private static final int NOTIFICATION_ID = 100;
     private static final String CHANNEL = "fastdl_downloads";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile HttpDownloader active;
     private PowerManager.WakeLock downloadWakeLock;
+    private long debugLastDone;
+    private long debugLastAt;
+    private long debugSpeed;
+    private long debugPeakSpeed;
+    private String debugResult = "";
 
     @Override public void onCreate() {
         super.onCreate();
@@ -59,6 +65,12 @@ public final class DownloadService extends Service {
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
         String url = intent.getStringExtra(EXTRA_URL);
         if (url == null || active != null) return START_NOT_STICKY;
+        boolean improvementPlan = intent.getBooleanExtra(EXTRA_IMPROVEMENT_PLAN, false);
+        debugLastDone = 0;
+        debugLastAt = System.currentTimeMillis();
+        debugSpeed = 0;
+        debugPeakSpeed = 0;
+        debugResult = "正在准备下载";
         startForeground(NOTIFICATION_ID, notification("正在准备下载", 0, 0));
         acquireDownloadWakeLock();
         File base = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS);
@@ -76,6 +88,8 @@ public final class DownloadService extends Service {
                     }
                 }
             } finally {
+                if (improvementPlan) DebugReporter.send(url,
+                        debugPeakSpeed > 0 ? debugPeakSpeed : debugSpeed, debugResult);
                 releaseDownloadWakeLock();
                 active = null;
                 stopForeground(STOP_FOREGROUND_REMOVE);
@@ -190,6 +204,13 @@ public final class DownloadService extends Service {
     }
 
     private void report(long done, long total, String text) {
+        long now = System.currentTimeMillis();
+        long elapsed = Math.max(1, now - debugLastAt);
+        debugSpeed = Math.max(0, (done - debugLastDone) * 1000 / elapsed);
+        if (debugSpeed > debugPeakSpeed) debugPeakSpeed = debugSpeed;
+        debugLastDone = done;
+        debugLastAt = now;
+        debugResult = text == null ? "" : text;
         sendBroadcast(new Intent(ACTION_UPDATE)
                 .setPackage(getPackageName()).putExtra(EXTRA_DONE, done)
                 .putExtra(EXTRA_TOTAL, total).putExtra(EXTRA_STATUS, text));
