@@ -432,13 +432,13 @@ public final class MainActivity extends Activity {
         heroGradient.setCornerRadius(dp(34));
         heroGradient.setStroke(dp(1), Color.argb(175, 255, 255, 255));
         hero.setBackground(heroGradient);
-        GradientDrawable cardGlass = glass(Color.argb(106,
+        GradientDrawable cardGlass = glass(Color.argb(62,
                 pink ? 255 : 239, pink ? 245 : 248, pink ? 250 : 255), dp(28));
         linkCard.setBackground(cardGlass);
-        GradientDrawable statusGlass = glass(Color.argb(96,
+        GradientDrawable statusGlass = glass(Color.argb(56,
                 pink ? 255 : 230, pink ? 229 : 246, pink ? 243 : 255), dp(26));
         monitor.setBackground(statusGlass);
-        GradientDrawable inputGlass = glass(Color.argb(92,
+        GradientDrawable inputGlass = glass(Color.argb(42,
                 pink ? 255 : 247, pink ? 250 : 252, pink ? 252 : 255), dp(20));
         urlInput.setBackground(inputGlass);
         GradientDrawable actionGradient = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
@@ -446,14 +446,14 @@ public final class MainActivity extends Activity {
         actionGradient.setCornerRadius(dp(20));
         actionGradient.setStroke(dp(1), Color.argb(120, 255, 255, 255));
         startButton.setBackground(actionGradient);
-        GradientDrawable palettePill = glass(Color.argb(42, 255, 255, 255), dp(18));
+        GradientDrawable palettePill = glass(Color.argb(28, 255, 255, 255), dp(18));
         palette.setBackground(palettePill);
         palette.setText(pink ? "蓝色" : "粉色");
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(start));
         int secondaryText = Color.rgb(pink ? 133 : 37, pink ? 52 : 84, pink ? 97 : 151);
         for (Button button : glassButtons) {
             button.setTextColor(secondaryText);
-            button.setBackground(glass(Color.argb(76,
+            button.setBackground(glass(Color.argb(38,
                     pink ? 255 : 241, pink ? 250 : 248, pink ? 252 : 255), dp(20)));
         }
         if (mark != null) mark.setImageResource(pink ? R.drawable.ic_fastdl_pink : R.drawable.ic_fastdl);

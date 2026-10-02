@@ -7,6 +7,6 @@
         <shape android:shape="rectangle"><gradient android:type="radial" android:gradientRadius="385dp" android:centerX="0.84" android:centerY="0.23" android:startColor="#A3FFB06B" android:endColor="#00FFB06B"/></shape>
     </item>
     <item android:gravity="bottom|right" android:width="620dp" android:height="700dp">
-        <shape android:shape="rectangle"><gradient android:type="radial" android:gradientRadius="450dp" android:centerX="0.8" android:centerY="0.78" android:startColor="#86B77BFF" android:endColor="#00B77BFF"/></shape>
+        <shape android:shape="rectangle"><gradient android:type="radial" android:gradientRadius="450dp" android:centerX="0.8" android:centerY="0.78" android:startColor="#86FF8BB3" android:endColor="#00FF8BB3"/></shape>
     </item>
 </layer-list>
