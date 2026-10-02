@@ -34,9 +34,9 @@ final class HttpDownloader {
     // remain within a modest memory envelope on phones.
     private static final int BUFFER = 512 * 1024;
     // Keep ranges large enough for GitHub's signed CDN, while giving phones
-    // more than two active transfers for a 30–40 MiB APK.
-    private static final long MIN_CHUNK = 8L * 1024 * 1024;
-    private static final long MAX_CHUNK = 32L * 1024 * 1024;
+    // 8 effective transfers for a 30–50 MiB APK instead of only four.
+    private static final long MIN_CHUNK = 4L * 1024 * 1024;
+    private static final long MAX_CHUNK = 16L * 1024 * 1024;
     private static final long MEMORY_LIMIT = 8L * 1024 * 1024;
     private static final int DEFAULT_THREADS = 128;
 
@@ -179,7 +179,7 @@ final class HttpDownloader {
         if (!work.exists() && !work.mkdirs()) throw new IOException("无法创建临时目录");
         saveMeta(meta, probe);
 
-        long chunk = Math.max(MIN_CHUNK, Math.min(MAX_CHUNK, (probe.size + options.threads - 1) / options.threads));
+        long chunk = chooseChunkSize(url, probe.size, options.threads);
         int chunks = (int) ((probe.size + chunk - 1) / chunk);
         List<Integer> pending = new ArrayList<>();
         for (int i = 0; i < chunks; i++) {
@@ -190,7 +190,8 @@ final class HttpDownloader {
             done.addAndGet(have);
             if (have < expected) pending.add(i);
         }
-        report(done.get(), "极速模式：" + pending.size() + " 个分片待完成，最高 " + options.threads + " 路并发");
+        report(done.get(), "极速模式：" + pending.size() + " 个分片待完成，" + cdnProfile(url)
+                + "，最高 " + options.threads + " 路并发");
         ExecutorService pool = Executors.newFixedThreadPool(Math.min(options.threads, Math.max(1, pending.size())));
         try {
             List<Future<?>> futures = new ArrayList<>();
@@ -291,7 +292,10 @@ final class HttpDownloader {
         c.setInstanceFollowRedirects(true);
         c.setUseCaches(false);
         c.setRequestProperty("Connection", "keep-alive");
-        c.setRequestProperty("Cache-Control", "no-cache");
+        // Do not force a CDN revalidation on every range. Immutable release
+        // assets are already content-addressed/signed; no-transform preserves
+        // byte ranges without defeating the edge cache.
+        c.setRequestProperty("Cache-Control", "no-transform");
         c.setRequestProperty("Accept", "application/octet-stream,*/*");
         c.setRequestProperty("Accept-Encoding", "identity");
         if (!options.headers.containsKey("User-Agent")) c.setRequestProperty("User-Agent", "FastDL-Android/0.2");
@@ -325,6 +329,41 @@ final class HttpDownloader {
             }
         } catch (Exception ignored) { }
         return input.trim();
+    }
+
+    private static long chooseChunkSize(String target, long size, int threads) {
+        String host = hostOf(target);
+        long min = MIN_CHUNK;
+        long max = MAX_CHUNK;
+        if (host.contains("cloudfront.net") || host.contains("cloudflare")
+                || host.contains("akamai") || host.contains("akamaized.net")
+                || host.contains("fastly.net")) {
+            min = 8L * 1024 * 1024;
+            max = 32L * 1024 * 1024;
+        } else if (host.contains("jsdelivr.net") || host.contains("unpkg.com")) {
+            min = 2L * 1024 * 1024;
+            max = 8L * 1024 * 1024;
+        }
+        long wanted = (size + Math.max(1, threads) - 1) / Math.max(1, threads);
+        return Math.max(min, Math.min(max, wanted));
+    }
+
+    private static String cdnProfile(String target) {
+        String host = hostOf(target);
+        if (host.contains("github") || host.contains("githubusercontent")) return "GitHub CDN";
+        if (host.contains("cloudfront.net")) return "CloudFront";
+        if (host.contains("cloudflare")) return "Cloudflare";
+        if (host.contains("akamai") || host.contains("akamaized.net")) return "Akamai";
+        if (host.contains("fastly.net")) return "Fastly";
+        if (host.contains("jsdelivr.net") || host.contains("unpkg.com")) return "JS CDN";
+        return "通用 CDN";
+    }
+
+    private static String hostOf(String target) {
+        try {
+            String host = new URI(target).getHost();
+            return host == null ? "" : host.toLowerCase(java.util.Locale.US);
+        } catch (Exception ignored) { return ""; }
     }
 
     private void reportMaybe() {

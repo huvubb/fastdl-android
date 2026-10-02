@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.IBinder;
 import android.os.Build;
 import android.os.Environment;
+import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.DocumentsContract;
 import android.webkit.MimeTypeMap;
@@ -38,6 +39,7 @@ public final class DownloadService extends Service {
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile HttpDownloader active;
+    private PowerManager.WakeLock downloadWakeLock;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -58,6 +60,7 @@ public final class DownloadService extends Service {
         String url = intent.getStringExtra(EXTRA_URL);
         if (url == null || active != null) return START_NOT_STICKY;
         startForeground(NOTIFICATION_ID, notification("正在准备下载", 0, 0));
+        acquireDownloadWakeLock();
         File base = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS);
         DownloadOptions options = DownloadOptions.from(intent);
         active = new HttpDownloader(base, url, options, new NetworkRouter(this, options.dualNetwork), this::report);
@@ -73,12 +76,27 @@ public final class DownloadService extends Service {
                     }
                 }
             } finally {
+                releaseDownloadWakeLock();
                 active = null;
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf(startId);
             }
         });
         return START_NOT_STICKY;
+    }
+
+    private void acquireDownloadWakeLock() {
+        if (downloadWakeLock != null && downloadWakeLock.isHeld()) return;
+        PowerManager manager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (manager == null) return;
+        downloadWakeLock = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FastDL:download");
+        downloadWakeLock.setReferenceCounted(false);
+        downloadWakeLock.acquire();
+    }
+
+    private void releaseDownloadWakeLock() {
+        if (downloadWakeLock != null && downloadWakeLock.isHeld()) downloadWakeLock.release();
+        downloadWakeLock = null;
     }
 
     private File newestCompleted(File base, long startedAt) {
@@ -202,5 +220,5 @@ public final class DownloadService extends Service {
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
-    @Override public void onDestroy() { if (active != null) active.pause(); worker.shutdownNow(); super.onDestroy(); }
+    @Override public void onDestroy() { if (active != null) active.pause(); releaseDownloadWakeLock(); worker.shutdownNow(); super.onDestroy(); }
 }
