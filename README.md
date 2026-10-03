@@ -35,6 +35,14 @@ gradlew.bat :app:assembleRelease
 
 下载内容只写入用户选择的本地目录。用户主动提交反馈时，应用只上传反馈文字、所选图片/视频；不会上传下载文件。反馈接口位于项目维护者自己的站点。
 
+## 赞助
+
+如果 FastDL 对你有帮助，欢迎赞助项目的后续维护。
+
+| 支付宝 | 微信支付 |
+| --- | --- |
+| ![支付宝收款码](docs/alipay.jpg) | ![微信收款码](docs/wechat.jpg) |
+
 ## 许可证
 
 PolyForm Noncommercial 1.0.0：允许个人、学习、研究和其他非商业使用，禁止商业使用。详见 [LICENSE](LICENSE)。

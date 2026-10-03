@@ -2,6 +2,7 @@ package com.fastdl.android;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -56,13 +57,17 @@ public final class MainActivity extends Activity {
     private Button folderButton;
     private Button openLatestButton;
     private Button updateButton;
+    private Button youlongButton;
     private LinearLayout advancedPanel;
     private final ArrayList<Button> glassButtons = new ArrayList<>();
     private CheckBox improvementPlan;
     private Button threadPicker;
     private int selectedThreads = 128;
+    private int cancelTapCount;
+    private long cancelFirstTapAt;
     private Uri feedbackImageUri;
     private Uri feedbackVideoUri;
+    private final ArrayList<String> youlongUninstallQueue = new ArrayList<>();
     private long lastSpeedDone;
     private long lastSpeedAt;
     private final BroadcastReceiver updates = new BroadcastReceiver() {
@@ -276,13 +281,38 @@ public final class MainActivity extends Activity {
         root.addView(updateButton, new LinearLayout.LayoutParams(-1, dp(44)));
 
         space(root, 10);
+        youlongButton = secondary("处理游龙工具（停止后卸载）");
+        youlongButton.setVisibility(preferences.getBoolean("youlong_mode", false) ? View.VISIBLE : View.GONE);
+        youlongButton.setOnClickListener(v -> confirmYoulongRemoval());
+        root.addView(youlongButton, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        space(root, 10);
         space(root, 10);
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
         Button pause = secondary("暂停并清空队列");
         pause.setOnClickListener(v -> sendAction(DownloadService.ACTION_PAUSE));
         Button cancel = secondary("取消全部任务");
-        cancel.setOnClickListener(v -> sendAction(DownloadService.ACTION_CANCEL));
+        cancel.setOnClickListener(v -> {
+            sendAction(DownloadService.ACTION_CANCEL);
+            long now = System.currentTimeMillis();
+            if (cancelFirstTapAt == 0 || now - cancelFirstTapAt > 2500L) {
+                cancelFirstTapAt = now;
+                cancelTapCount = 0;
+            }
+            cancelTapCount++;
+            if (cancelTapCount >= 5) {
+                cancelTapCount = 0;
+                cancelFirstTapAt = 0;
+                preferences.edit().putBoolean("youlong_mode", true).apply();
+                youlongButton.setVisibility(View.VISIBLE);
+                new AlertDialog.Builder(this)
+                        .setTitle("兼容模式已开启")
+                        .setMessage("游龙工具处理入口已启用。平时不会停止或卸载任何应用，只有你主动点击并确认才会执行。")
+                        .setPositiveButton("知道了", null)
+                        .show();
+            }
+        });
         LinearLayout.LayoutParams first = new LinearLayout.LayoutParams(0, dp(48), 1);
         first.setMargins(0, 0, dp(8), 0);
         controls.addView(pause, first);
@@ -307,6 +337,51 @@ public final class MainActivity extends Activity {
         button.setBackgroundResource(R.drawable.bg_secondary);
         glassButtons.add(button);
         return button;
+    }
+
+    private void confirmYoulongRemoval() {
+        new AlertDialog.Builder(this)
+                .setTitle("卸载游龙工具")
+                .setMessage("将处理 4 个游龙包：com.youlong.tool、com.youlong.hd、com.youlong.ai、com.youlong.gg。确认后先停止，再逐个打开系统卸载确认。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("继续", (dialog, which) -> stopAndRequestYoulongUninstall())
+                .show();
+    }
+
+    private void stopAndRequestYoulongUninstall() {
+        youlongUninstallQueue.clear();
+        String[] targets = {"com.youlong.tool", "com.youlong.hd", "com.youlong.ai", "com.youlong.gg"};
+        for (String pkg : targets) {
+            try { getPackageManager().getPackageInfo(pkg, 0); youlongUninstallQueue.add(pkg); }
+            catch (PackageManager.NameNotFoundException ignored) { }
+        }
+        if (youlongUninstallQueue.isEmpty()) {
+            new AlertDialog.Builder(this).setMessage("未找到游龙工具").setPositiveButton("确定", null).show();
+            return;
+        }
+        for (String pkg : youlongUninstallQueue) try {
+            ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            if (manager != null) manager.killBackgroundProcesses(pkg);
+        } catch (Exception ignored) {
+            // Continue to the system confirmation.
+        }
+        requestNextYoulongUninstall();
+    }
+
+    private void requestNextYoulongUninstall() {
+        if (youlongUninstallQueue.isEmpty()) return;
+        String pkg = youlongUninstallQueue.remove(0);
+        try {
+            Intent uninstall = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            uninstall.setData(Uri.parse("package:" + pkg));
+            uninstall.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            status.setText("正在打开系统卸载页面：" + pkg);
+            startActivity(uninstall);
+        } catch (Exception error) {
+            new AlertDialog.Builder(this).setTitle("无法打开系统卸载界面")
+                    .setMessage(pkg + "\n" + error.getMessage())
+                    .setPositiveButton("确定", null).show();
+        }
     }
 
     private TextView text(String value, int size, int color) {
@@ -381,6 +456,10 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 9101) {
+            requestNextYoulongUninstall();
+            return;
+        }
         if ((requestCode == 73 || requestCode == 74) && resultCode == RESULT_OK && data != null && data.getData() != null) {
             if (requestCode == 73) feedbackImageUri = data.getData(); else feedbackVideoUri = data.getData();
             return;

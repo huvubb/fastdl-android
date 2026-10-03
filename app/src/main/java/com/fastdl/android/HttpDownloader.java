@@ -39,13 +39,16 @@ final class HttpDownloader {
         } catch (SecurityException ignored) { }
     }
     interface Listener { void update(long done, long total, String status); }
-    // Large enough to keep high-bandwidth connections fed, while 128 active workers
-    // remain within a modest memory envelope on phones.
+    // Reused for each active transfer; keep it moderate for constrained devices.
     private static final int BUFFER = 512 * 1024;
-    // Keep ranges large enough for GitHub's signed CDN, while giving phones
-    // 8 effective transfers for a 30–50 MiB APK instead of only four.
-    private static final long MIN_CHUNK = 4L * 1024 * 1024;
-    private static final long MAX_CHUNK = 16L * 1024 * 1024;
+    // Larger ranges reduce per-request overhead; four workers provide mobile
+    // parallelism without exploding connection count.
+    private static final long MIN_CHUNK = 8L * 1024 * 1024;
+    private static final long MAX_CHUNK = 32L * 1024 * 1024;
+    // The desktop downloader uses 64 MiB minimum chunks. Keep a little more
+    // parallelism on mobile, but avoid turning a 128-thread preference into
+    // dozens of tiny HTTPS ranges (which adds TLS/CDN overhead on cellular).
+    private static final int MAX_ACTIVE_CONNECTIONS = 4;
     private static final long MEMORY_LIMIT = 8L * 1024 * 1024;
     private static final int DEFAULT_THREADS = 128;
 
@@ -204,9 +207,11 @@ final class HttpDownloader {
             done.addAndGet(have);
             if (have < expected) pending.add(i);
         }
+        int activeConnections = Math.min(options.threads,
+                Math.min(MAX_ACTIVE_CONNECTIONS, Math.max(1, chunks)));
         report(done.get(), "极速模式：" + pending.size() + " 个分片待完成，" + cdnProfile(url)
-                + "，最高 " + options.threads + " 路并发");
-        ExecutorService pool = Executors.newFixedThreadPool(Math.min(options.threads, Math.max(1, pending.size())));
+                + "，自动使用 " + activeConnections + " 路并发（所选上限 " + options.threads + " 路）");
+        ExecutorService pool = Executors.newFixedThreadPool(Math.min(activeConnections, Math.max(1, pending.size())));
         try {
             List<Future<?>> futures = new ArrayList<>();
             for (int index : pending) futures.add(pool.submit(() -> fetchPart(work, index, chunk, probe.size)));
@@ -349,16 +354,12 @@ final class HttpDownloader {
         String host = hostOf(target);
         long min = MIN_CHUNK;
         long max = MAX_CHUNK;
-        if (host.contains("cloudfront.net") || host.contains("cloudflare")
-                || host.contains("akamai") || host.contains("akamaized.net")
-                || host.contains("fastly.net")) {
-            min = 8L * 1024 * 1024;
-            max = 32L * 1024 * 1024;
-        } else if (host.contains("jsdelivr.net") || host.contains("unpkg.com")) {
+        if (host.contains("jsdelivr.net") || host.contains("unpkg.com")) {
             min = 2L * 1024 * 1024;
             max = 8L * 1024 * 1024;
         }
-        long wanted = (size + Math.max(1, threads) - 1) / Math.max(1, threads);
+        int targetConnections = Math.max(1, Math.min(threads, MAX_ACTIVE_CONNECTIONS));
+        long wanted = (size + targetConnections - 1) / targetConnections;
         return Math.max(min, Math.min(max, wanted));
     }
 
